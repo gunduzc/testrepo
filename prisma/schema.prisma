@@ -1,0 +1,331 @@
+// Programmable Spaced Repetition Learning Platform
+// Prisma Schema - SQLite
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// ENUMS (SQLite doesn't support enums, so we use String with validation in app)
+// ============================================================================
+
+// Role: ADMIN | EDUCATOR | STUDENT
+// AnswerType: INTEGER | DECIMAL | TEXT | FRACTION | CHOICE
+// CardState: NEW | LEARNING | REVIEW | RELEARNING
+// Rating: AGAIN | HARD | GOOD | EASY
+
+// ============================================================================
+// USER AND AUTHENTICATION
+// ============================================================================
+
+model User {
+  id                    String    @id @default(cuid())
+  name                  String
+  email                 String    @unique
+  emailVerified         DateTime?
+  passwordHash          String?
+  image                 String?
+  role                  String    @default("STUDENT") // Role enum
+  selectedThemeId       String?
+  twoFactorEnabled      Boolean   @default(false)
+  twoFactorSecret       String?
+  fsrsParameters        String?   // JSON string for FSRS params
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  // Relations
+  selectedTheme         Theme?    @relation(fields: [selectedThemeId], references: [id])
+  accounts              Account[]
+  sessions              Session[]
+  authoredCards         Card[]
+  authoredCurricula     Curriculum[]
+  studentCardStates     StudentCardState[]
+  reviewLogs            ReviewLog[]
+  activeStudySessions   ActiveStudySession[]
+  classEnrollments      ClassEnrollment[]
+  classesAsEducator     Class[]
+  curriculumEnrollments UserCurriculumEnrollment[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ============================================================================
+// CONTENT MODELS
+// ============================================================================
+
+model Card {
+  id              String   @id @default(cuid())
+  functionSource  String   // JS source code
+  description     String
+  name            String
+  answerType      String   @default("TEXT") // AnswerType enum
+  learningSteps   Int      @default(5)
+  relearningSteps Int      @default(3)
+  tags            String   @default("[]") // JSON array
+  authorId        String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  author            User                 @relation(fields: [authorId], references: [id])
+  authoringHistory  CardAuthoringHistory?
+  cardSubjects      CardSubject[]
+  studentCardStates StudentCardState[]
+  reviewLogs        ReviewLog[]
+  generatedContents GeneratedContent[]
+  stepOverrides     CardStepOverride[]
+}
+
+model CardAuthoringHistory {
+  id        String   @id @default(cuid())
+  cardId    String   @unique
+  entries   String   // JSON array of {type, content, timestamp, sampleIndex?}
+  updatedAt DateTime @updatedAt
+
+  card Card @relation(fields: [cardId], references: [id], onDelete: Cascade)
+}
+
+// ============================================================================
+// CURRICULUM STRUCTURE
+// ============================================================================
+
+model Subject {
+  id          String  @id @default(cuid())
+  name        String
+  description String?
+
+  // Relations
+  cardSubjects        CardSubject[]
+  curriculumSubjects  CurriculumSubject[]
+  prerequisiteOf      SubjectPrerequisite[] @relation("PrerequisiteOf")
+  prerequisites       SubjectPrerequisite[] @relation("HasPrerequisite")
+}
+
+model CardSubject {
+  cardId    String
+  subjectId String
+  position  Int
+
+  card    Card    @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  subject Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+
+  @@id([cardId, subjectId])
+}
+
+model Curriculum {
+  id          String  @id @default(cuid())
+  name        String
+  description String?
+  isPublic    Boolean @default(false)
+  authorId    String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  author                User                       @relation(fields: [authorId], references: [id])
+  curriculumSubjects    CurriculumSubject[]
+  assignments           CurriculumAssignment[]
+  individualEnrollments UserCurriculumEnrollment[]
+}
+
+model CurriculumSubject {
+  curriculumId String
+  subjectId    String
+
+  curriculum Curriculum @relation(fields: [curriculumId], references: [id], onDelete: Cascade)
+  subject    Subject    @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+
+  @@id([curriculumId, subjectId])
+}
+
+model SubjectPrerequisite {
+  subjectId      String
+  prerequisiteId String
+
+  subject      Subject @relation("PrerequisiteOf", fields: [subjectId], references: [id], onDelete: Cascade)
+  prerequisite Subject @relation("HasPrerequisite", fields: [prerequisiteId], references: [id], onDelete: Cascade)
+
+  @@id([subjectId, prerequisiteId])
+}
+
+// ============================================================================
+// STUDY AND SCHEDULING
+// ============================================================================
+
+model StudentCardState {
+  id            String   @id @default(cuid())
+  userId        String
+  cardId        String
+  state         String   @default("NEW") // CardState enum
+  stability     Float    @default(0)
+  difficulty    Float    @default(0)
+  elapsedDays   Int      @default(0)
+  scheduledDays Int      @default(0)
+  learningSteps Int      @default(0)
+  reps          Int      @default(0)
+  lapses        Int      @default(0)
+  stepIndex     Int      @default(0)
+  due           DateTime @default(now())
+  lastReview    DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  card Card @relation(fields: [cardId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, cardId])
+}
+
+model ReviewLog {
+  id                String   @id @default(cuid())
+  userId            String
+  cardId            String
+  rating            String   // Rating enum
+  correct           Boolean
+  responseTimeMs    Int
+  stateBeforeReview String   // CardState enum
+  stabilityBefore   Float
+  difficultyBefore  Float
+  createdAt         DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  card Card @relation(fields: [cardId], references: [id], onDelete: Cascade)
+}
+
+model ActiveStudySession {
+  id              String   @id @default(cuid())
+  userId          String
+  cardId          String
+  correctAnswer   String
+  answerType      String   // AnswerType enum
+  validateFnSource String?
+  presentedAt     DateTime @default(now())
+  expiresAt       DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ============================================================================
+// LLM AND THEMING
+// ============================================================================
+
+model Theme {
+  id             String @id @default(cuid())
+  name           String
+  description    String
+  promptTemplate String // LLM prompt with {question} and {description} placeholders
+
+  // Relations
+  users             User[]
+  generatedContents GeneratedContent[]
+}
+
+model GeneratedContent {
+  id               String   @id @default(cuid())
+  cardId           String
+  themeId          String
+  originalQuestion String
+  themedQuestion   String
+  createdAt        DateTime @default(now())
+
+  card  Card  @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  theme Theme @relation(fields: [themeId], references: [id], onDelete: Cascade)
+
+  @@unique([cardId, themeId, originalQuestion])
+}
+
+// ============================================================================
+// CLASS AND ORGANIZATION
+// ============================================================================
+
+model Class {
+  id         String @id @default(cuid())
+  name       String
+  educatorId String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // Relations
+  educator              User                   @relation(fields: [educatorId], references: [id])
+  enrollments           ClassEnrollment[]
+  curriculumAssignments CurriculumAssignment[]
+  stepOverrides         CardStepOverride[]
+}
+
+model ClassEnrollment {
+  userId  String
+  classId String
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  class Class @relation(fields: [classId], references: [id], onDelete: Cascade)
+
+  @@id([userId, classId])
+}
+
+model CurriculumAssignment {
+  classId      String
+  curriculumId String
+
+  class      Class      @relation(fields: [classId], references: [id], onDelete: Cascade)
+  curriculum Curriculum @relation(fields: [curriculumId], references: [id], onDelete: Cascade)
+
+  @@id([classId, curriculumId])
+}
+
+model UserCurriculumEnrollment {
+  userId       String
+  curriculumId String
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  curriculum Curriculum @relation(fields: [curriculumId], references: [id], onDelete: Cascade)
+
+  @@id([userId, curriculumId])
+}
+
+model CardStepOverride {
+  classId        String
+  cardId         String
+  learningSteps  Int?
+  relearningSteps Int?
+
+  class Class @relation(fields: [classId], references: [id], onDelete: Cascade)
+  card  Card  @relation(fields: [cardId], references: [id], onDelete: Cascade)
+
+  @@id([classId, cardId])
+}

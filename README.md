@@ -1,36 +1,105 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Programmable Spaced Repetition Learning Platform
 
-## Getting Started
+A type-safe, layered architecture learning platform using the FSRS (Free Spaced Repetition Scheduler) algorithm. Create programmable flashcards with JavaScript, organize them into curricula with prerequisite-based unlocking, and track student progress.
 
-First, run the development server:
+## Features
+
+### For Students
+- **Optimized Learning**: FSRS algorithm adapts to your memory patterns
+- **Prerequisite-Based Unlocking**: Subjects unlock as you master prerequisites
+- **Theme Support**: Personalize questions with different themes (Space, Fantasy, etc.)
+- **Progress Tracking**: Detailed stats per subject and curriculum
+
+### For Educators
+- **Programmable Cards**: Write JavaScript functions that generate infinite question variations
+- **LLM-Assisted Authoring**: Describe cards in natural language, AI generates the code
+- **Visual Curriculum Editor**: Build DAGs of subjects with prerequisites
+- **Class Management**: Group students, assign curricula, track progress
+- **Import/Export**: JSON-based curriculum sharing
+
+### Security
+- **Sandboxed Execution**: Card code runs in isolated V8 instances
+- **Server-Side Validation**: Correct answers never leave the server
+- **Role-Based Access**: Admin, Educator, and Student roles
+- **2FA Support**: TOTP-based two-factor authentication
+
+## Tech Stack
+
+- **Framework**: Next.js 15 (App Router)
+- **Language**: TypeScript
+- **Database**: SQLite (dev) / PostgreSQL (prod)
+- **ORM**: Prisma
+- **Auth**: NextAuth.js v5
+- **Scheduling**: ts-fsrs
+- **Sandbox**: isolated-vm
+- **LLM**: OpenAI API (optional)
+- **Styling**: Tailwind CSS
+
+## Quick Start
 
 ```bash
+# Install dependencies
+npm install
+
+# Set up environment
+cp .env.example .env
+
+# Initialize database
+npx prisma db push
+npx prisma generate
+
+# Start development server
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Visit http://localhost:3000
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Documentation
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- [Setup Guide](docs/SETUP.md) - Installation and configuration
+- [Architecture](docs/ARCHITECTURE.md) - System design and data flow
+- [API Reference](docs/API.md) - Complete API documentation
+- [Card Authoring](docs/CARD_AUTHORING.md) - How to create flashcard functions
+- [LLD Report](LLD_Report.md) - Original low-level design specification
 
-## Learn More
+## Example Card Function
 
-To learn more about Next.js, take a look at the following resources:
+```javascript
+function generate() {
+  const a = Math.floor(Math.random() * 90) + 10;
+  const b = Math.floor(Math.random() * 90) + 10;
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+  return {
+    question: `What is $${a} + ${b}$?`,
+    answer: {
+      correct: String(a + b),
+      type: "INTEGER"
+    }
+  };
+}
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Project Status
 
-## Deploy on Vercel
+This is a Senior Design Project (February 2026) implementing the full LLD specification:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- [x] Prisma database schema
+- [x] Core services (Sandbox, FSRS, Validation, LLM, etc.)
+- [x] REST API routes
+- [x] NextAuth authentication with 2FA
+- [x] Study interface with FSRS scheduling
+- [x] Card code editor with preview
+- [x] Curriculum browser and enrollment
+- [x] Student/Educator dashboards
+- [ ] Visual DAG editor (ReactFlow)
+- [ ] Full class management UI
+- [ ] FSRS parameter optimization UI
+- [ ] Theme selection UI
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## License
+
+This project is part of a university senior design course.
+
+---
+
+Built with Next.js, Prisma, and ts-fsrs.
