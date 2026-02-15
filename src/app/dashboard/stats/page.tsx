@@ -375,6 +375,30 @@ export default function StatsPage() {
             </CardBody>
           </Card>
         )}
+
+        {/* Data Export */}
+        <Card>
+          <CardHeader>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+              Data Export
+            </h2>
+          </CardHeader>
+          <CardBody className="space-y-4">
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              Download a complete copy of your data including your profile, study progress,
+              review history, and any content you&apos;ve created. This export is provided in
+              JSON format for GDPR compliance.
+            </p>
+            <Button
+              onClick={() => {
+                window.location.href = "/api/user/export";
+              }}
+              variant="secondary"
+            >
+              Download My Data
+            </Button>
+          </CardBody>
+        </Card>
       </div>
     </div>
   );
