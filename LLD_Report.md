@@ -209,6 +209,13 @@ Soft delete - cards/subjects marked deleted, progress preserved for analytics.
 - FSRS priority for card ordering
 - No early review (scheduling respected)
 
+#### Sandbox Failure
+Retry once on timeout/crash, then skip card. Log error and notify educator.
+
+#### UX Requirements
+- Mobile-essential: responsive design, touch-friendly
+- i18n-ready: string keys (English only for MVP)
+
 ---
 
 ## 3. Data Model
@@ -862,7 +869,7 @@ All routes under `/app/api/`. Session/role validated via middleware. Errors retu
 |--------|------|-------------|
 | POST | `/api/curricula` | Create curriculum. |
 | GET | `/api/curricula` | List (filtered by role). |
-| GET | `/api/curricula/public` | Public library. |
+| GET | `/api/curricula/public` | Public library (community/publisher modes). |
 | GET | `/api/curricula/:id` | Full curriculum with subjects + graph. |
 | PUT | `/api/curricula/:id` | Update metadata. |
 | DELETE | `/api/curricula/:id` | Delete. |
@@ -870,7 +877,7 @@ All routes under `/app/api/`. Session/role validated via middleware. Errors retu
 | PUT | `/api/subjects/:id` | Update subject / card ordering. |
 | POST | `/api/subjects/:id/prerequisites` | Add prereq edge. Validates DAG. |
 | DELETE | `/api/subjects/:id/prerequisites/:pid` | Remove prereq. |
-| POST | `/api/curricula/:id/enroll` | Individual user enrollment. |
+| POST | `/api/curricula/:id/enroll` | Self-enrollment (community/publisher modes). |
 
 ### 5.5 Classes
 
@@ -982,7 +989,7 @@ Classes, per-student progress, content management, step override editor.
 
 ### 6.8 CurriculumBrowser
 
-Public curriculum library for individual users. Search/filter, enroll.
+Curriculum library for browsing and enrollment. Available in community/publisher modes. In school mode, students see only assigned curricula via their class dashboard.
 
 ### 6.9 Authentication Pages
 
@@ -1051,7 +1058,7 @@ sequenceDiagram
         SSS->>SSS: normalize + compare
     end
 
-    SSS->>FSRS: computeRating(correct, responseTimeMs)
+    SSS->>FSRS: computeRating(correct)
     FSRS-->>SSS: Rating
     SSS->>FSRS: updateCardState(userId, cardId, rating)
     FSRS->>DB: UPDATE StudentCardState + INSERT ReviewLog
@@ -1074,7 +1081,7 @@ sequenceDiagram
 9. Student submits. `POST /api/study/submit { sessionId, answer }`.
 10. Lookup ActiveStudySession. Compute responseTimeMs = now − presentedAt.
 11. `AnswerValidationService.validate(answer, correctAnswer, type, validateFn?)`. Custom validate runs in sandbox.
-12. `FSRSService.computeRating(correct, responseTimeMs)`. `FSRSService.updateCardState` writes new FSRS state + ReviewLog.
+12. `FSRSService.computeRating(correct)`. `FSRSService.updateCardState` writes new FSRS state + ReviewLog.
 13. ActiveStudySession deleted. Return SubmissionResult: `{ correct, correctAnswer, rating, progress }`.
 14. StudyView shows feedback. Auto-advances to next question.
 
