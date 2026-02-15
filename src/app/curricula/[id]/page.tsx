@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardBody } from "@/components/ui/card";
+import { PrereqStatus } from "@/components/study/prereq-status";
 
 interface SubjectCard {
   cardId: string;
@@ -39,6 +40,16 @@ interface UserInfo {
   role: string;
 }
 
+interface SubjectPrereqStatus {
+  subjectId: string;
+  isUnlocked: boolean;
+}
+
+interface PrereqStatusData {
+  enforcement: "hard" | "soft" | "none";
+  subjects: SubjectPrereqStatus[];
+}
+
 export default function CurriculumDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -47,6 +58,7 @@ export default function CurriculumDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [enrolling, setEnrolling] = useState(false);
+  const [prereqStatus, setPrereqStatus] = useState<PrereqStatusData | null>(null);
 
   useEffect(() => {
     async function fetchData() {
@@ -105,6 +117,24 @@ export default function CurriculumDetailPage() {
   const getSubjectName = (subjectId: string): string => {
     const subject = curriculum?.subjects.find((s) => s.id === subjectId);
     return subject?.name || subjectId;
+  };
+
+  // Helper to check if a subject is unlocked
+  const isSubjectUnlocked = (subjectId: string): boolean => {
+    if (!prereqStatus || prereqStatus.enforcement === "none") return true;
+    const subjectStatus = prereqStatus.subjects.find((s) => s.subjectId === subjectId);
+    return subjectStatus?.isUnlocked ?? true;
+  };
+
+  // Helper to get lock status color/icon
+  const getSubjectLockStatus = (subjectId: string): { icon: string; color: string } | null => {
+    if (!prereqStatus || prereqStatus.enforcement === "none") return null;
+    const unlocked = isSubjectUnlocked(subjectId);
+    if (unlocked) return null;
+
+    return prereqStatus.enforcement === "hard"
+      ? { icon: "🔒", color: "text-red-500" }
+      : { icon: "⚠️", color: "text-yellow-500" };
   };
 
   if (loading) {
@@ -185,16 +215,35 @@ export default function CurriculumDetailPage() {
           </div>
         </div>
 
+        {/* Prereq Status Banner */}
+        {user && !isEducator && (
+          <div className="mb-6">
+            <PrereqStatus
+              curriculumId={curriculum.id}
+              onStatusLoaded={(status) => setPrereqStatus(status)}
+            />
+          </div>
+        )}
+
         <h2 className="text-xl sm:text-2xl font-semibold mb-3 sm:mb-4 text-gray-900 dark:text-gray-100">Subjects</h2>
 
         {curriculum.subjects.length === 0 ? (
           <p className="text-gray-500 dark:text-gray-400">No subjects in this curriculum yet.</p>
         ) : (
           <div className="grid gap-3 sm:gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {curriculum.subjects.map((subject) => (
-              <Card key={subject.id}>
+            {curriculum.subjects.map((subject) => {
+              const lockStatus = getSubjectLockStatus(subject.id);
+              return (
+              <Card key={subject.id} className={lockStatus ? "opacity-75" : ""}>
                 <CardHeader>
-                  <h3 className="font-semibold text-base sm:text-lg text-gray-900 dark:text-gray-100">{subject.name}</h3>
+                  <div className="flex items-center gap-2">
+                    {lockStatus && (
+                      <span className={lockStatus.color} title={lockStatus.icon === "🔒" ? "Locked - complete prerequisites" : "Prerequisites recommended"}>
+                        {lockStatus.icon}
+                      </span>
+                    )}
+                    <h3 className="font-semibold text-base sm:text-lg text-gray-900 dark:text-gray-100">{subject.name}</h3>
+                  </div>
                 </CardHeader>
                 <CardBody>
                   <p className="text-gray-600 dark:text-gray-400 text-xs sm:text-sm mb-3">
@@ -231,7 +280,8 @@ export default function CurriculumDetailPage() {
                   )}
                 </CardBody>
               </Card>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

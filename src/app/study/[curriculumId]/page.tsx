@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { StudyView } from "@/components/study/study-view";
 import { StudyHeader } from "@/components/study/study-header";
+import { PrereqStatus } from "@/components/study/prereq-status";
 
 interface StudyPageProps {
   params: Promise<{ curriculumId: string }>;
@@ -30,6 +31,7 @@ export default async function StudyPage({ params, searchParams }: StudyPageProps
           </div>
         )}
         <StudyHeader />
+        {!isPreview && <PrereqStatus curriculumId={curriculumId} />}
         <StudyView curriculumId={curriculumId} previewMode={isPreview} />
       </div>
     </div>
