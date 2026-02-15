@@ -219,15 +219,27 @@ export default async function DashboardPage() {
                 </Link>
               </>
             ) : (
-              <Link href="/curricula">
-                <Card className="hover:shadow-lg dark:hover:shadow-gray-900/70 transition-shadow cursor-pointer">
-                  <CardBody className="text-center py-4 sm:py-6">
-                    <div className="text-3xl sm:text-4xl mb-2">📚</div>
-                    <h3 className="font-medium text-sm sm:text-base text-gray-900 dark:text-gray-100">Browse Curricula</h3>
-                    <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Find new content to learn</p>
-                  </CardBody>
-                </Card>
-              </Link>
+              <>
+                <Link href="/curricula">
+                  <Card className="hover:shadow-lg dark:hover:shadow-gray-900/70 transition-shadow cursor-pointer">
+                    <CardBody className="text-center py-4 sm:py-6">
+                      <div className="text-3xl sm:text-4xl mb-2">📚</div>
+                      <h3 className="font-medium text-sm sm:text-base text-gray-900 dark:text-gray-100">Browse Curricula</h3>
+                      <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Find new content to learn</p>
+                    </CardBody>
+                  </Card>
+                </Link>
+
+                <Link href="/dashboard/stats">
+                  <Card className="hover:shadow-lg dark:hover:shadow-gray-900/70 transition-shadow cursor-pointer">
+                    <CardBody className="text-center py-4 sm:py-6">
+                      <div className="text-3xl sm:text-4xl mb-2">📊</div>
+                      <h3 className="font-medium text-sm sm:text-base text-gray-900 dark:text-gray-100">Study Statistics</h3>
+                      <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">View progress & optimize</p>
+                    </CardBody>
+                  </Card>
+                </Link>
+              </>
             )}
           </div>
         </section>
