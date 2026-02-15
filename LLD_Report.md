@@ -258,6 +258,7 @@ classDiagram
         +Int relearningSteps
         +String[] tags
         +String authorId
+        +DateTime? deletedAt
     }
 
     class CardAuthoringHistory {
@@ -272,6 +273,7 @@ classDiagram
         +String name
         +String description?
         +String authorId
+        +DateTime? deletedAt
     }
 
     class CardSubject {
@@ -316,6 +318,9 @@ classDiagram
         +Rating rating
         +Boolean correct
         +Int responseTimeMs
+        +AnswerMedium answerMedium
+        +String generatedQuestion
+        +String generatedAnswer
     }
 
     class ActiveStudySession {
@@ -419,7 +424,20 @@ All platform users. Auth data stored by NextAuth (Account, Session). User stores
 | `DateTime` | `createdAt` | |
 | `DateTime` | `updatedAt` | |
 
-**Relations:** studentCardStates[], reviewLogs[], enrollments[], curriculumEnrollments[], classesAsEducator[], authoredCards[]
+**Relations:** studentCardStates[], reviewLogs[], enrollments[], curriculumEnrollments[], classesAsEducator[], authoredCards[], passwordResetTokens[]
+
+#### `PasswordResetToken`
+
+Token for password reset flow. Revokes all sessions on use.
+
+| Type | Attribute | Description |
+|------|-----------|-------------|
+| `String` | `id` | UUID |
+| `String` | `userId` | FK to User |
+| `String` | `token` | Unique secure token |
+| `DateTime` | `expiresAt` | Token expiration |
+
+**Relations:** user
 
 ### 3.4 Content Models
 
@@ -440,6 +458,7 @@ A JavaScript function producing question-answer pairs. Stores source, metadata, 
 | `String` | `authorId` | FK to User |
 | `DateTime` | `createdAt` | |
 | `DateTime` | `updatedAt` | |
+| `DateTime?` | `deletedAt` | Soft delete timestamp (null = active) |
 
 **Relations:** author, cardSubjects[], authoringHistory?, studentCardStates[], reviewLogs[], generatedContents[], stepOverrides[]
 
@@ -468,6 +487,7 @@ Topic area containing ordered cards. Subjects are global and can be reused acros
 | `String` | `name` | e.g., "Two-Digit Addition" |
 | `String?` | `description` | |
 | `String` | `authorId` | FK to User (who created this subject) |
+| `DateTime?` | `deletedAt` | Soft delete timestamp (null = active) |
 
 **Relations:** author, cards[] (via CardSubject), curriculumSubjects[], prerequisiteOf[], prerequisites[]
 
@@ -844,6 +864,7 @@ All routes under `/app/api/`. Session/role validated via middleware. Errors retu
 | POST | `/api/auth/2fa/verify` | Verify TOTP code during login. |
 | GET | `/api/auth/sessions` | List active sessions. |
 | DELETE | `/api/auth/sessions/:id` | Revoke session. |
+| DELETE | `/api/auth/sessions` | Revoke all sessions ("log out everywhere"). |
 
 ### 5.2 Study
 
