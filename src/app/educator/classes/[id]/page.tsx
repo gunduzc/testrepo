@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Card, CardHeader, CardBody } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ClassAnalytics } from "@/components/educator/class-analytics";
 
 interface Student {
   id: string;
@@ -341,6 +342,11 @@ export default function ClassDetailPage() {
           )}
         </CardBody>
       </Card>
+
+      {/* Analytics Section */}
+      {classData.enrollments.length > 0 && classData.curriculumAssignments.length > 0 && (
+        <ClassAnalytics classId={classData.id} />
+      )}
     </div>
   );
 }
