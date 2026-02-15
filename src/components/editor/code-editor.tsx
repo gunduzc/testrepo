@@ -12,7 +12,16 @@ interface CardCodeEditorProps {
   initialSource?: string;
   cardId?: string;
   subjectId?: string;
-  onSave?: (data: { name: string; description: string; answerType: AnswerType; source: string }) => Promise<void>;
+  initialLearningSteps?: number;
+  initialRelearningSteps?: number;
+  onSave?: (data: {
+    name: string;
+    description: string;
+    answerType: AnswerType;
+    source: string;
+    learningSteps: number;
+    relearningSteps: number;
+  }) => Promise<void>;
   onCardCreated?: (cardId: string) => void;
 }
 
@@ -29,7 +38,15 @@ const DEFAULT_SOURCE = `function generate() {
   };
 }`;
 
-export function CardCodeEditor({ initialSource, cardId, subjectId, onSave, onCardCreated }: CardCodeEditorProps) {
+export function CardCodeEditor({
+  initialSource,
+  cardId,
+  subjectId,
+  initialLearningSteps = 5,
+  initialRelearningSteps = 3,
+  onSave,
+  onCardCreated,
+}: CardCodeEditorProps) {
   const [source, setSource] = useState(initialSource || DEFAULT_SOURCE);
   const [testResults, setTestResults] = useState<SandboxResult[]>([]);
   const [isTesting, setIsTesting] = useState(false);
@@ -37,6 +54,8 @@ export function CardCodeEditor({ initialSource, cardId, subjectId, onSave, onCar
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [answerType, setAnswerType] = useState<AnswerType>("INTEGER");
+  const [learningSteps, setLearningSteps] = useState(initialLearningSteps);
+  const [relearningSteps, setRelearningSteps] = useState(initialRelearningSteps);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [sampleCount, setSampleCount] = useState(10);
@@ -84,7 +103,7 @@ export function CardCodeEditor({ initialSource, cardId, subjectId, onSave, onCar
     try {
       // If custom onSave provided, use it
       if (onSave) {
-        await onSave({ name, description, answerType, source });
+        await onSave({ name, description, answerType, source, learningSteps, relearningSteps });
         return;
       }
 
@@ -97,6 +116,8 @@ export function CardCodeEditor({ initialSource, cardId, subjectId, onSave, onCar
           name,
           description,
           answerType,
+          learningSteps,
+          relearningSteps,
           subjectId,
         }),
       });
@@ -239,6 +260,42 @@ export function CardCodeEditor({ initialSource, cardId, subjectId, onSave, onCar
                 <option value="FRACTION">Fraction</option>
                 <option value="CHOICE">Multiple Choice</option>
               </select>
+            </div>
+
+            {/* Learning Steps Configuration */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Learning Steps
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  max="20"
+                  value={learningSteps}
+                  onChange={(e) => setLearningSteps(Math.min(20, Math.max(1, parseInt(e.target.value) || 5)))}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                />
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  Correct answers needed when learning
+                </p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Relearning Steps
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  max="20"
+                  value={relearningSteps}
+                  onChange={(e) => setRelearningSteps(Math.min(20, Math.max(1, parseInt(e.target.value) || 3)))}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                />
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  Correct answers needed when relearning
+                </p>
+              </div>
             </div>
           </CardBody>
           <CardFooter>
