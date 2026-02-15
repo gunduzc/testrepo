@@ -35,17 +35,13 @@ export async function POST(request: NextRequest) {
     // Hash password
     const passwordHash = await hashPassword(data.password);
 
-    // Check if this email should be auto-promoted to admin
-    const adminEmail = process.env.ADMIN_EMAIL?.toLowerCase();
-    const isInitialAdmin = adminEmail && data.email.toLowerCase() === adminEmail;
-
     // Create user
     const user = await prisma.user.create({
       data: {
         name: data.name,
         email: data.email,
         passwordHash,
-        role: isInitialAdmin ? "ADMIN" : data.role,
+        role: data.role,
       },
       select: {
         id: true,
