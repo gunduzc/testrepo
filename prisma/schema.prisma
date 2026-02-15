@@ -17,7 +17,8 @@ datasource db {
 // Role: ADMIN | EDUCATOR | STUDENT
 // AnswerType: INTEGER | DECIMAL | TEXT | FRACTION | CHOICE
 // CardState: NEW | LEARNING | REVIEW | RELEARNING
-// Rating: AGAIN | HARD | GOOD | EASY
+// Rating: PASS | FAIL (binary, maps to FSRS Good/Again)
+// AnswerMedium: MENTAL | TYPING | PEN_PAPER | OTHER
 
 // ============================================================================
 // USER AND AUTHENTICATION
@@ -43,6 +44,7 @@ model User {
   accounts              Account[]
   sessions              Session[]
   authoredCards         Card[]
+  authoredSubjects      Subject[]
   authoredCurricula     Curriculum[]
   studentCardStates     StudentCardState[]
   reviewLogs            ReviewLog[]
@@ -51,6 +53,7 @@ model User {
   classesAsEducator     Class[]
   curriculumEnrollments UserCurriculumEnrollment[]
   undoableReview        UndoableReview?
+  passwordResetTokens   PasswordResetToken[]
 }
 
 model Account {
@@ -88,22 +91,33 @@ model VerificationToken {
   @@unique([identifier, token])
 }
 
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
 // ============================================================================
 // CONTENT MODELS
 // ============================================================================
 
 model Card {
-  id              String   @id @default(cuid())
-  functionSource  String   // JS source code
+  id              String    @id @default(cuid())
+  functionSource  String    // JS source code
   description     String
   name            String
-  answerType      String   @default("TEXT") // AnswerType enum
-  learningSteps   Int      @default(5)
-  relearningSteps Int      @default(3)
-  tags            String   @default("[]") // JSON array
+  answerType      String    @default("TEXT") // AnswerType enum
+  learningSteps   Int       @default(5)
+  relearningSteps Int       @default(3)
+  tags            String    @default("[]") // JSON array
   authorId        String
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime? // Soft delete timestamp (null = active)
 
   // Relations
   author            User                 @relation(fields: [authorId], references: [id])
@@ -129,11 +143,14 @@ model CardAuthoringHistory {
 // ============================================================================
 
 model Subject {
-  id          String  @id @default(cuid())
+  id          String    @id @default(cuid())
   name        String
   description String?
+  authorId    String    // Who created this subject
+  deletedAt   DateTime? // Soft delete timestamp (null = active)
 
   // Relations
+  author              User                  @relation(fields: [authorId], references: [id])
   cardSubjects        CardSubject[]
   curriculumSubjects  CurriculumSubject[]
   prerequisiteOf      SubjectPrerequisite[] @relation("PrerequisiteOf")
@@ -152,13 +169,15 @@ model CardSubject {
 }
 
 model Curriculum {
-  id          String  @id @default(cuid())
+  id          String    @id @default(cuid())
   name        String
   description String?
-  isPublic    Boolean @default(false)
   authorId    String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime? // Soft delete timestamp (null = active)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Note: Visibility is determined by INSTANCE_MODE, not per-curriculum flag
 
   // Relations
   author                User                       @relation(fields: [authorId], references: [id])
@@ -217,9 +236,12 @@ model ReviewLog {
   id                String   @id @default(cuid())
   userId            String
   cardId            String
-  rating            String   // Rating enum
+  rating            String   // Rating enum: PASS | FAIL
   correct           Boolean
   responseTimeMs    Int
+  answerMedium      String   @default("TYPING") // AnswerMedium enum
+  generatedQuestion String?  // The actual question shown (for data collection)
+  generatedAnswer   String?  // The correct answer for this instance
   stateBeforeReview String   // CardState enum
   stabilityBefore   Float
   difficultyBefore  Float
