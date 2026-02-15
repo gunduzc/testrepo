@@ -1,6 +1,7 @@
 /**
  * Study API
  * GET /api/study/[curriculumId] - Get next question
+ * GET /api/study/[curriculumId]?preview=true - Get preview question (educators only)
  * GET /api/study/[curriculumId]/progress - Get progress (handled in next.ts)
  */
 
@@ -22,15 +23,36 @@ export async function GET(
     }
 
     const { curriculumId } = await params;
+    const url = new URL(request.url);
+    const isPreview = url.searchParams.get("preview") === "true";
 
     // Check if requesting progress
-    const url = new URL(request.url);
     if (url.pathname.endsWith("/progress")) {
       const progress = await studyService.getProgress(session.user.id, curriculumId);
       return NextResponse.json({ success: true, data: progress });
     }
 
-    // Get next question
+    // Preview mode for educators
+    if (isPreview) {
+      if (!["ADMIN", "EDUCATOR"].includes(session.user.role)) {
+        return NextResponse.json(
+          { error: { code: "FORBIDDEN", message: "Preview mode is for educators only" } },
+          { status: 403 }
+        );
+      }
+
+      const question = await studyService.getPreviewQuestion(curriculumId);
+      if (!question) {
+        return NextResponse.json({
+          success: true,
+          data: null,
+          message: "No cards in curriculum",
+        });
+      }
+      return NextResponse.json({ success: true, data: question });
+    }
+
+    // Regular study mode - get next due question
     const question = await studyService.getNextQuestion(session.user.id, curriculumId);
 
     if (!question) {

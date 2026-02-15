@@ -30,9 +30,9 @@ import {
   AnswerType,
 } from "@/lib/types";
 
-// Response time thresholds (in ms)
-const FAST_THRESHOLD = 3000; // < 3 seconds = EASY
-const SLOW_THRESHOLD = 15000; // > 15 seconds = HARD
+// AFK detection: cap response time at 2 minutes
+// Anything longer is likely distraction, not actual study time
+const MAX_RESPONSE_TIME_MS = 120000;
 
 /**
  * Maps our CardState to ts-fsrs State
@@ -82,27 +82,25 @@ function createFSRS(params?: FSRSParameters): FSRS {
 
 export class FSRSService {
   /**
-   * Computes rating based on correctness and response time
+   * Computes rating based on correctness only.
+   * Binary rating (AGAIN/GOOD) as recommended by FSRS research.
+   * Students never self-rate - the system determines rating from correctness.
    */
-  computeRating(correct: boolean, responseTimeMs: number): Rating {
-    if (!correct) {
-      return Rating.AGAIN;
-    }
+  computeRating(correct: boolean): Rating {
+    return correct ? Rating.GOOD : Rating.AGAIN;
+  }
 
-    if (responseTimeMs < FAST_THRESHOLD) {
-      return Rating.EASY;
-    }
-
-    if (responseTimeMs > SLOW_THRESHOLD) {
-      return Rating.HARD;
-    }
-
-    return Rating.GOOD;
+  /**
+   * Caps response time for AFK detection.
+   * Returns capped time in ms.
+   */
+  capResponseTime(responseTimeMs: number): number {
+    return Math.min(responseTimeMs, MAX_RESPONSE_TIME_MS);
   }
 
   /**
    * Updates card state after a review
-   * Returns the updated state
+   * Returns the updated state and stores undo information
    */
   async updateCardState(
     userId: string,
@@ -113,6 +111,7 @@ export class FSRSService {
     newState: CardState;
     stability: number;
     difficulty: number;
+    canUndo: boolean;
   }> {
     // Get user's FSRS parameters (or use global default)
     const user = await prisma.user.findUnique({
@@ -132,6 +131,7 @@ export class FSRSService {
     });
 
     const now = new Date();
+    const wasNew = !cardState;
 
     if (!cardState) {
       // Create new state for first review
@@ -151,6 +151,20 @@ export class FSRSService {
         },
       });
     }
+
+    // Store previous state for undo
+    const prevState = {
+      state: cardState.state,
+      stability: cardState.stability,
+      difficulty: cardState.difficulty,
+      elapsedDays: cardState.elapsedDays,
+      scheduledDays: cardState.scheduledDays,
+      reps: cardState.reps,
+      lapses: cardState.lapses,
+      stepIndex: cardState.stepIndex,
+      due: cardState.due,
+      lastReview: cardState.lastReview,
+    };
 
     // Build FSRS card from our state
     const fsrsCard: FSRSCard = {
@@ -190,7 +204,7 @@ export class FSRSService {
     const newFsrsCard = result.card;
 
     // Create review log
-    await prisma.reviewLog.create({
+    const reviewLog = await prisma.reviewLog.create({
       data: {
         userId,
         cardId,
@@ -223,11 +237,102 @@ export class FSRSService {
       },
     });
 
+    // Store undo information (replace any existing undo for this user)
+    await prisma.undoableReview.upsert({
+      where: { userId },
+      create: {
+        userId,
+        reviewLogId: reviewLog.id,
+        cardId,
+        prevState: prevState.state,
+        prevStability: prevState.stability,
+        prevDifficulty: prevState.difficulty,
+        prevElapsedDays: prevState.elapsedDays,
+        prevScheduledDays: prevState.scheduledDays,
+        prevReps: prevState.reps,
+        prevLapses: prevState.lapses,
+        prevStepIndex: prevState.stepIndex,
+        prevDue: prevState.due,
+        prevLastReview: prevState.lastReview,
+        wasNew,
+      },
+      update: {
+        reviewLogId: reviewLog.id,
+        cardId,
+        prevState: prevState.state,
+        prevStability: prevState.stability,
+        prevDifficulty: prevState.difficulty,
+        prevElapsedDays: prevState.elapsedDays,
+        prevScheduledDays: prevState.scheduledDays,
+        prevReps: prevState.reps,
+        prevLapses: prevState.lapses,
+        prevStepIndex: prevState.stepIndex,
+        prevDue: prevState.due,
+        prevLastReview: prevState.lastReview,
+        wasNew,
+      },
+    });
+
     return {
       newState,
       stability: newFsrsCard.stability,
       difficulty: newFsrsCard.difficulty,
+      canUndo: true,
     };
+  }
+
+  /**
+   * Undoes the last review for a user
+   * Restores previous FSRS state and deletes the review log
+   */
+  async undoLastReview(userId: string): Promise<{ success: boolean; message: string }> {
+    const undoable = await prisma.undoableReview.findUnique({
+      where: { userId },
+    });
+
+    if (!undoable) {
+      return { success: false, message: "Nothing to undo" };
+    }
+
+    // Delete the review log
+    await prisma.reviewLog.delete({
+      where: { id: undoable.reviewLogId },
+    }).catch(() => {
+      // Review log might already be deleted, that's okay
+    });
+
+    if (undoable.wasNew) {
+      // Card was new, delete the StudentCardState entirely
+      await prisma.studentCardState.delete({
+        where: { userId_cardId: { userId, cardId: undoable.cardId } },
+      }).catch(() => {
+        // Might not exist, that's okay
+      });
+    } else {
+      // Restore previous state
+      await prisma.studentCardState.update({
+        where: { userId_cardId: { userId, cardId: undoable.cardId } },
+        data: {
+          state: undoable.prevState,
+          stability: undoable.prevStability,
+          difficulty: undoable.prevDifficulty,
+          elapsedDays: undoable.prevElapsedDays,
+          scheduledDays: undoable.prevScheduledDays,
+          reps: undoable.prevReps,
+          lapses: undoable.prevLapses,
+          stepIndex: undoable.prevStepIndex,
+          due: undoable.prevDue,
+          lastReview: undoable.prevLastReview,
+        },
+      });
+    }
+
+    // Delete the undo record
+    await prisma.undoableReview.delete({
+      where: { userId },
+    });
+
+    return { success: true, message: "Review undone" };
   }
 
   /**

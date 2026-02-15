@@ -9,22 +9,28 @@ import { QuestionPresentation, SubmissionResult, AnswerType } from "@/lib/types"
 
 interface StudyViewProps {
   curriculumId: string;
+  previewMode?: boolean;
 }
 
 type StudyState = "loading" | "question" | "feedback" | "complete";
 
-export function StudyView({ curriculumId }: StudyViewProps) {
+export function StudyView({ curriculumId, previewMode = false }: StudyViewProps) {
   const [state, setState] = useState<StudyState>("loading");
   const [question, setQuestion] = useState<QuestionPresentation | null>(null);
   const [result, setResult] = useState<SubmissionResult | null>(null);
   const [nextDue, setNextDue] = useState<Date | null>(null);
   const [startTime, setStartTime] = useState<number>(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [canUndo, setCanUndo] = useState(false);
+  const [isUndoing, setIsUndoing] = useState(false);
 
   const fetchNextQuestion = useCallback(async () => {
     setState("loading");
     try {
-      const res = await fetch(`/api/study/${curriculumId}`);
+      const url = previewMode
+        ? `/api/study/${curriculumId}?preview=true`
+        : `/api/study/${curriculumId}`;
+      const res = await fetch(url);
       const data = await res.json();
 
       if (data.data) {
@@ -39,7 +45,7 @@ export function StudyView({ curriculumId }: StudyViewProps) {
       console.error("Failed to fetch question:", error);
       setState("complete");
     }
-  }, [curriculumId]);
+  }, [curriculumId, previewMode]);
 
   useEffect(() => {
     fetchNextQuestion();
@@ -50,22 +56,36 @@ export function StudyView({ curriculumId }: StudyViewProps) {
 
     setIsSubmitting(true);
     try {
-      const res = await fetch("/api/study/submit", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          sessionId: question.sessionId,
-          answer,
-        }),
-      });
-
-      const data = await res.json();
-
-      if (data.success) {
-        setResult(data.data);
+      if (previewMode) {
+        // In preview mode, don't save progress - just show feedback
+        const isCorrect = answer.trim().toLowerCase() === question.correctAnswer?.trim().toLowerCase();
+        setResult({
+          correct: isCorrect,
+          correctAnswer: question.correctAnswer || "N/A",
+          progress: { completionPercentage: 0 },
+          canUndo: false,
+        });
+        setCanUndo(false);
         setState("feedback");
       } else {
-        console.error("Submit failed:", data.error);
+        const res = await fetch("/api/study/submit", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sessionId: question.sessionId,
+            answer,
+          }),
+        });
+
+        const data = await res.json();
+
+        if (data.success) {
+          setResult(data.data);
+          setCanUndo(data.data.canUndo ?? false);
+          setState("feedback");
+        } else {
+          console.error("Submit failed:", data.error);
+        }
       }
     } catch (error) {
       console.error("Failed to submit answer:", error);
@@ -77,16 +97,41 @@ export function StudyView({ curriculumId }: StudyViewProps) {
   const handleContinue = () => {
     setResult(null);
     setQuestion(null);
+    setCanUndo(false);
     fetchNextQuestion();
+  };
+
+  const handleUndo = async () => {
+    setIsUndoing(true);
+    try {
+      const res = await fetch("/api/study/undo", {
+        method: "POST",
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        setCanUndo(false);
+        setResult(null);
+        setQuestion(null);
+        // Re-fetch - the undone card should come back
+        fetchNextQuestion();
+      } else {
+        console.error("Undo failed:", data.message);
+      }
+    } catch (error) {
+      console.error("Undo failed:", error);
+    } finally {
+      setIsUndoing(false);
+    }
   };
 
   // Loading state
   if (state === "loading") {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
+      <div className="flex items-center justify-center min-h-[300px] sm:min-h-[400px]">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4" />
-          <p className="text-gray-600">Loading next question...</p>
+          <div className="animate-spin rounded-full h-10 w-10 sm:h-12 sm:w-12 border-b-2 border-blue-600 mx-auto mb-4" />
+          <p className="text-gray-600 dark:text-gray-400 text-sm sm:text-base">Loading...</p>
         </div>
       </div>
     );
@@ -109,14 +154,14 @@ export function StudyView({ curriculumId }: StudyViewProps) {
     };
 
     return (
-      <Card className="max-w-2xl mx-auto">
-        <CardBody className="text-center py-12">
-          <div className="text-6xl mb-4">{isPastDue ? "📚" : "🎉"}</div>
-          <h2 className="text-2xl font-bold mb-2">
+      <Card>
+        <CardBody className="text-center py-8 sm:py-12 px-4 sm:px-6">
+          <div className="text-5xl sm:text-6xl mb-4">{isPastDue ? "📚" : "🎉"}</div>
+          <h2 className="text-xl sm:text-2xl font-bold mb-2 text-gray-900 dark:text-gray-100">
             {isPastDue ? "Cards Ready!" : "All caught up!"}
           </h2>
-          <p className="text-gray-600 mb-6">{formatDueTime()}</p>
-          <Button onClick={fetchNextQuestion}>
+          <p className="text-gray-600 dark:text-gray-400 text-sm sm:text-base mb-6">{formatDueTime()}</p>
+          <Button onClick={fetchNextQuestion} className="w-full sm:w-auto">
             {isPastDue ? "Continue Studying" : "Check Again"}
           </Button>
         </CardBody>
@@ -127,30 +172,40 @@ export function StudyView({ curriculumId }: StudyViewProps) {
   // Feedback state
   if (state === "feedback" && result) {
     return (
-      <Card className="max-w-2xl mx-auto">
-        <CardBody className="py-8">
-          <div className={`text-center mb-6 ${result.correct ? "text-green-600" : "text-red-600"}`}>
-            <div className="text-6xl mb-2">{result.correct ? "✓" : "✗"}</div>
-            <h2 className="text-2xl font-bold">
+      <Card>
+        <CardBody className="py-6 sm:py-8 px-4 sm:px-6">
+          <div className={`text-center mb-4 sm:mb-6 ${result.correct ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
+            <div className="text-5xl sm:text-6xl mb-2">{result.correct ? "✓" : "✗"}</div>
+            <h2 className="text-xl sm:text-2xl font-bold">
               {result.correct ? "Correct!" : "Incorrect"}
             </h2>
           </div>
 
           {!result.correct && (
-            <div className="bg-gray-100 rounded-lg p-4 mb-6">
-              <p className="text-sm text-gray-500 mb-1">Correct answer:</p>
-              <p className="text-lg font-medium">{result.correctAnswer}</p>
+            <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-3 sm:p-4 mb-4 sm:mb-6">
+              <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mb-1">Correct answer:</p>
+              <p className="text-base sm:text-lg font-medium text-gray-900 dark:text-gray-100">{result.correctAnswer}</p>
             </div>
           )}
 
-          <div className="flex justify-between items-center text-sm text-gray-500 mb-6">
-            <span>Rating: {result.rating}</span>
+          <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mb-4 sm:mb-6 text-center">
             <span>Progress: {result.progress.completionPercentage.toFixed(1)}%</span>
           </div>
 
-          <Button onClick={handleContinue} className="w-full">
-            Continue
-          </Button>
+          <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+            {canUndo && (
+              <Button
+                onClick={handleUndo}
+                disabled={isUndoing}
+                className="w-full sm:flex-1 bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
+              >
+                {isUndoing ? "Undoing..." : "Undo"}
+              </Button>
+            )}
+            <Button onClick={handleContinue} className="w-full sm:flex-1">
+              Continue
+            </Button>
+          </div>
         </CardBody>
       </Card>
     );
@@ -159,14 +214,14 @@ export function StudyView({ curriculumId }: StudyViewProps) {
   // Question state
   if (state === "question" && question) {
     return (
-      <Card className="max-w-2xl mx-auto">
-        <CardBody className="py-8">
-          <div className="text-sm text-gray-500 mb-4">
+      <Card>
+        <CardBody className="py-6 sm:py-8 px-4 sm:px-6">
+          <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mb-3 sm:mb-4">
             {question.subjectName && <span>{question.subjectName} • </span>}
             <span>{question.cardName}</span>
           </div>
 
-          <div className="mb-8">
+          <div className="mb-6 sm:mb-8 text-lg sm:text-xl">
             <QuestionRenderer content={question.question} />
           </div>
 

@@ -50,6 +50,7 @@ model User {
   classEnrollments      ClassEnrollment[]
   classesAsEducator     Class[]
   curriculumEnrollments UserCurriculumEnrollment[]
+  undoableReview        UndoableReview?
 }
 
 model Account {
@@ -237,6 +238,31 @@ model ActiveStudySession {
   validateFnSource String?
   presentedAt     DateTime @default(now())
   expiresAt       DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// Stores the last review for undo functionality (one per user)
+model UndoableReview {
+  id              String   @id @default(cuid())
+  userId          String   @unique // Only one undoable review per user
+  reviewLogId     String   @unique // The review log entry to delete on undo
+  cardId          String
+
+  // Previous StudentCardState (to restore)
+  prevState           String  // CardState enum
+  prevStability       Float
+  prevDifficulty      Float
+  prevElapsedDays     Int
+  prevScheduledDays   Int
+  prevReps            Int
+  prevLapses          Int
+  prevStepIndex       Int
+  prevDue             DateTime
+  prevLastReview      DateTime?
+  wasNew              Boolean  @default(false) // If true, delete StudentCardState on undo
+
+  createdAt       DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

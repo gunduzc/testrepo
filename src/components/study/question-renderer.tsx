@@ -10,7 +10,7 @@ interface QuestionRendererProps {
 
 export function QuestionRenderer({ content }: QuestionRendererProps) {
   return (
-    <div className="prose prose-lg max-w-none">
+    <div className="prose prose-base sm:prose-lg max-w-none dark:prose-invert">
       <ReactMarkdown
         remarkPlugins={[remarkMath]}
         rehypePlugins={[rehypeKatex]}

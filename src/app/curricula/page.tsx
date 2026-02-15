@@ -3,42 +3,53 @@ import { auth } from "@/lib/auth";
 import { curriculumService } from "@/services";
 import { Card, CardHeader, CardBody } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 export default async function CurriculaPage() {
   const session = await auth();
   const { curricula } = await curriculumService.listPublicCurricula({ limit: 50 });
+  const isEducator = session?.user && ["ADMIN", "EDUCATOR"].includes(session.user.role);
 
   return (
-    <div className="min-h-screen bg-gray-100 py-8">
-      <div className="container mx-auto px-4">
-        <header className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Curriculum Library</h1>
-          <p className="text-gray-600 mt-2">
-            Browse and enroll in public curricula
-          </p>
+    <div className="min-h-screen bg-gray-100 dark:bg-gray-950 py-4 sm:py-8">
+      <div className="container mx-auto px-3 sm:px-4">
+        <header className="mb-6 sm:mb-8 flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">Curriculum Library</h1>
+            <p className="text-gray-600 dark:text-gray-400 mt-2 text-sm sm:text-base">
+              {isEducator ? "Browse public curricula" : "Browse and enroll in public curricula"}
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <ThemeToggle />
+            <Link href="/dashboard">
+              <Button variant="secondary">Dashboard</Button>
+            </Link>
+          </div>
         </header>
 
         {curricula.length === 0 ? (
           <Card>
-            <CardBody className="text-center py-12">
-              <p className="text-gray-600 mb-4">
+            <CardBody className="text-center py-8 sm:py-12">
+              <p className="text-gray-600 dark:text-gray-400 mb-4 text-sm sm:text-base">
                 No public curricula available yet.
               </p>
-              {session?.user && ["ADMIN", "EDUCATOR"].includes(session.user.role) && (
-                <Link href="/curricula/new">
+              {isEducator && (
+                <Link href="/educator/curricula/new">
                   <Button>Create the First One</Button>
                 </Link>
               )}
             </CardBody>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             {curricula.map((curriculum) => (
               <CurriculumCard
                 key={curriculum.id}
                 curriculum={curriculum}
                 isLoggedIn={!!session?.user}
                 userId={session?.user?.id}
+                userRole={session?.user?.role}
               />
             ))}
           </div>
@@ -57,15 +68,19 @@ interface CurriculumCardProps {
   };
   isLoggedIn: boolean;
   userId?: string;
+  userRole?: string;
 }
 
-async function CurriculumCard({ curriculum, isLoggedIn, userId }: CurriculumCardProps) {
+async function CurriculumCard({ curriculum, isLoggedIn, userId, userRole }: CurriculumCardProps) {
+  const isEducator = userRole && ["ADMIN", "EDUCATOR"].includes(userRole);
+  const isOwner = userId === curriculum.authorId;
+
   return (
     <Card>
       <CardHeader>
-        <h3 className="font-semibold text-lg">{curriculum.name}</h3>
+        <h3 className="font-semibold text-base sm:text-lg text-gray-900 dark:text-gray-100">{curriculum.name}</h3>
         {curriculum.description && (
-          <p className="text-sm text-gray-600 mt-1">{curriculum.description}</p>
+          <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mt-1">{curriculum.description}</p>
         )}
       </CardHeader>
       <CardBody>
@@ -75,7 +90,12 @@ async function CurriculumCard({ curriculum, isLoggedIn, userId }: CurriculumCard
               View Details
             </Button>
           </Link>
-          {isLoggedIn && (
+          {isLoggedIn && isEducator && isOwner && (
+            <Link href={`/educator/curricula/${curriculum.id}`}>
+              <Button>Edit</Button>
+            </Link>
+          )}
+          {isLoggedIn && !isEducator && (
             <EnrollButton curriculumId={curriculum.id} />
           )}
         </div>
@@ -90,7 +110,7 @@ function EnrollButton({ curriculumId }: { curriculumId: string }) {
       action={async () => {
         "use server";
         const session = await auth();
-        if (session?.user) {
+        if (session?.user && !["ADMIN", "EDUCATOR"].includes(session.user.role)) {
           try {
             await curriculumService.enrollUser(curriculumId, session.user.id);
           } catch {

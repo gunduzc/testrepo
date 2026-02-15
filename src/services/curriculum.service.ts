@@ -307,6 +307,145 @@ export class CurriculumService {
   }
 
   /**
+   * Adds a card to a subject
+   */
+  async addCardToSubject(
+    subjectId: string,
+    cardId: string,
+    userId: string,
+    position?: number
+  ): Promise<void> {
+    // Check authorization
+    const subjectCurricula = await prisma.curriculumSubject.findFirst({
+      where: { subjectId },
+      include: { curriculum: true },
+    });
+
+    if (!subjectCurricula) {
+      throw new Error("Subject not found in any curriculum");
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true },
+    });
+
+    if (subjectCurricula.curriculum.authorId !== userId && user?.role !== "ADMIN") {
+      throw new Error("Not authorized to modify this subject");
+    }
+
+    // Check if card exists
+    const card = await prisma.card.findUnique({ where: { id: cardId } });
+    if (!card) {
+      throw new Error("Card not found");
+    }
+
+    // Check if already in subject
+    const existing = await prisma.cardSubject.findUnique({
+      where: { cardId_subjectId: { cardId, subjectId } },
+    });
+
+    if (existing) {
+      throw new Error("Card already in subject");
+    }
+
+    // Get max position if not specified
+    const maxPosition = position ?? (
+      await prisma.cardSubject.aggregate({
+        where: { subjectId },
+        _max: { position: true },
+      })
+    )._max.position ?? -1;
+
+    await prisma.cardSubject.create({
+      data: {
+        cardId,
+        subjectId,
+        position: position ?? maxPosition + 1,
+      },
+    });
+  }
+
+  /**
+   * Removes a card from a subject
+   */
+  async removeCardFromSubject(
+    subjectId: string,
+    cardId: string,
+    userId: string
+  ): Promise<void> {
+    // Check authorization
+    const subjectCurricula = await prisma.curriculumSubject.findFirst({
+      where: { subjectId },
+      include: { curriculum: true },
+    });
+
+    if (!subjectCurricula) {
+      throw new Error("Subject not found in any curriculum");
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true },
+    });
+
+    if (subjectCurricula.curriculum.authorId !== userId && user?.role !== "ADMIN") {
+      throw new Error("Not authorized to modify this subject");
+    }
+
+    await prisma.cardSubject.delete({
+      where: { cardId_subjectId: { cardId, subjectId } },
+    });
+  }
+
+  /**
+   * Deletes a subject from a curriculum
+   */
+  async deleteSubject(subjectId: string, userId: string): Promise<void> {
+    // Check authorization
+    const subjectCurricula = await prisma.curriculumSubject.findFirst({
+      where: { subjectId },
+      include: { curriculum: true },
+    });
+
+    if (!subjectCurricula) {
+      throw new Error("Subject not found in any curriculum");
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true },
+    });
+
+    if (subjectCurricula.curriculum.authorId !== userId && user?.role !== "ADMIN") {
+      throw new Error("Not authorized to delete this subject");
+    }
+
+    // Delete in transaction: prerequisites, card-subject links, curriculum-subject link, then subject
+    await prisma.$transaction(async (tx) => {
+      // Remove all prerequisite relationships
+      await tx.subjectPrerequisite.deleteMany({
+        where: { OR: [{ subjectId }, { prerequisiteId: subjectId }] },
+      });
+
+      // Remove all card-subject links
+      await tx.cardSubject.deleteMany({
+        where: { subjectId },
+      });
+
+      // Remove curriculum-subject link
+      await tx.curriculumSubject.deleteMany({
+        where: { subjectId },
+      });
+
+      // Delete the subject
+      await tx.subject.delete({
+        where: { id: subjectId },
+      });
+    });
+  }
+
+  /**
    * Validates the DAG structure of a curriculum
    * Uses Kahn's algorithm to detect cycles
    */

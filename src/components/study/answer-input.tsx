@@ -29,15 +29,15 @@ export function AnswerInput({ answerType, choices, onSubmit, disabled }: AnswerI
   // Choice-based answer
   if (answerType === "CHOICE" && choices) {
     return (
-      <div className="space-y-3">
+      <div className="space-y-2 sm:space-y-3">
         {choices.map((choice, index) => (
           <button
             key={index}
             onClick={() => handleChoiceSelect(choice)}
             disabled={disabled}
-            className="w-full p-4 text-left border rounded-lg hover:bg-blue-50 hover:border-blue-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full p-3 sm:p-4 text-left text-sm sm:text-base border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:border-blue-500 dark:hover:border-blue-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <span className="font-medium mr-3">{String.fromCharCode(65 + index)}.</span>
+            <span className="font-medium mr-2 sm:mr-3">{String.fromCharCode(65 + index)}.</span>
             {choice}
           </button>
         ))}

@@ -41,18 +41,18 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100 px-4">
+    <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-950 px-4">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <h1 className="text-2xl font-bold text-center">Sign In</h1>
-          <p className="text-gray-600 text-center mt-1">
+          <h1 className="text-xl sm:text-2xl font-bold text-center text-gray-900 dark:text-gray-100">Sign In</h1>
+          <p className="text-gray-600 dark:text-gray-400 text-center mt-1 text-sm sm:text-base">
             Welcome back to Spaced Repetition
           </p>
         </CardHeader>
         <form onSubmit={handleSubmit}>
           <CardBody className="space-y-4">
             {error && (
-              <div className="p-3 bg-red-100 text-red-700 rounded-lg text-sm">
+              <div className="p-3 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded-lg text-sm">
                 {error}
               </div>
             )}
@@ -77,9 +77,9 @@ export default function LoginPage() {
             <Button type="submit" isLoading={isLoading} className="w-full">
               Sign In
             </Button>
-            <p className="text-center text-sm text-gray-600">
+            <p className="text-center text-sm text-gray-600 dark:text-gray-400">
               Don&apos;t have an account?{" "}
-              <Link href="/register" className="text-blue-600 hover:underline">
+              <Link href="/register" className="text-blue-600 dark:text-blue-400 hover:underline">
                 Sign up
               </Link>
             </p>

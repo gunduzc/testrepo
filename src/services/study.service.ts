@@ -167,8 +167,9 @@ export class StudySessionService {
       return null;
     }
 
-    // Calculate response time
-    const responseTimeMs = Date.now() - session.presentedAt.getTime();
+    // Calculate response time (capped for AFK detection)
+    const rawResponseTimeMs = Date.now() - session.presentedAt.getTime();
+    const responseTimeMs = fsrsService.capResponseTime(rawResponseTimeMs);
 
     // Validate answer
     const correct = await validationService.validate(
@@ -178,11 +179,11 @@ export class StudySessionService {
       session.validateFnSource || undefined
     );
 
-    // Compute rating
-    const rating = fsrsService.computeRating(correct, responseTimeMs);
+    // Compute rating - binary only (AGAIN/GOOD)
+    const rating = fsrsService.computeRating(correct);
 
     // Update FSRS state
-    const { newState } = await fsrsService.updateCardState(
+    const { newState, canUndo } = await fsrsService.updateCardState(
       userId,
       session.cardId,
       rating,
@@ -230,6 +231,68 @@ export class StudySessionService {
       rating,
       progress,
       nextState: newState,
+      canUndo,
+    };
+  }
+
+  /**
+   * Gets a preview question for educators (no session, includes answer)
+   */
+  async getPreviewQuestion(curriculumId: string): Promise<QuestionPresentation | null> {
+    // Get all cards from the curriculum
+    const curriculum = await prisma.curriculum.findUnique({
+      where: { id: curriculumId },
+      include: {
+        curriculumSubjects: {
+          include: {
+            subject: {
+              include: {
+                cardSubjects: {
+                  include: { card: true },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!curriculum) return null;
+
+    // Flatten all cards
+    const allCards = curriculum.curriculumSubjects.flatMap((cs) =>
+      cs.subject.cardSubjects.map((ccs) => ({
+        card: ccs.card,
+        subjectName: cs.subject.name,
+      }))
+    );
+
+    if (allCards.length === 0) return null;
+
+    // Pick a random card
+    const randomIndex = Math.floor(Math.random() * allCards.length);
+    const { card, subjectName } = allCards[randomIndex];
+
+    // Execute card function in sandbox
+    const result = await sandboxService.executeCard(card.functionSource);
+
+    if (!result.success) {
+      console.error(`Card ${card.id} execution failed:`, result.error);
+      return null;
+    }
+
+    const cardOutput = result.output;
+
+    // Return question WITH correct answer for preview
+    return {
+      sessionId: `preview-${Date.now()}`,
+      cardId: card.id,
+      question: cardOutput.question,
+      answerType: cardOutput.answer.type as AnswerType,
+      choices: cardOutput.answer.choices,
+      cardName: card.name,
+      subjectName,
+      correctAnswer: cardOutput.answer.correct,
     };
   }
 

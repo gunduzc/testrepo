@@ -71,3 +71,52 @@ export async function PUT(
     );
   }
 }
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return NextResponse.json(
+        { error: { code: "UNAUTHORIZED", message: "Not authenticated" } },
+        { status: 401 }
+      );
+    }
+
+    if (!["ADMIN", "EDUCATOR"].includes(session.user.role)) {
+      return NextResponse.json(
+        { error: { code: "FORBIDDEN", message: "Only educators can delete subjects" } },
+        { status: 403 }
+      );
+    }
+
+    const { id } = await params;
+
+    await curriculumService.deleteSubject(id, session.user.id);
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    if (error instanceof Error) {
+      if (error.message.includes("not found")) {
+        return NextResponse.json(
+          { error: { code: "NOT_FOUND", message: error.message } },
+          { status: 404 }
+        );
+      }
+      if (error.message.includes("Not authorized")) {
+        return NextResponse.json(
+          { error: { code: "FORBIDDEN", message: error.message } },
+          { status: 403 }
+        );
+      }
+    }
+
+    console.error("Delete subject error:", error);
+    return NextResponse.json(
+      { error: { code: "INTERNAL_ERROR", message: "Failed to delete subject" } },
+      { status: 500 }
+    );
+  }
+}

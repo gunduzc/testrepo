@@ -9,7 +9,7 @@ export const Card = forwardRef<HTMLDivElement, CardProps>(
     return (
       <div
         ref={ref}
-        className={`bg-white rounded-xl shadow-md overflow-hidden ${className}`}
+        className={`bg-white dark:bg-gray-900 rounded-xl shadow-md dark:shadow-gray-900/50 overflow-hidden border border-transparent dark:border-gray-800 ${className}`}
         {...props}
       >
         {children}
@@ -25,7 +25,7 @@ export const CardHeader = forwardRef<HTMLDivElement, CardProps>(
     return (
       <div
         ref={ref}
-        className={`px-6 py-4 border-b border-gray-200 ${className}`}
+        className={`px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200 dark:border-gray-800 ${className}`}
         {...props}
       >
         {children}
@@ -39,7 +39,7 @@ CardHeader.displayName = "CardHeader";
 export const CardBody = forwardRef<HTMLDivElement, CardProps>(
   ({ className = "", children, ...props }, ref) => {
     return (
-      <div ref={ref} className={`px-6 py-4 ${className}`} {...props}>
+      <div ref={ref} className={`px-4 sm:px-6 py-3 sm:py-4 ${className}`} {...props}>
         {children}
       </div>
     );
@@ -53,7 +53,7 @@ export const CardFooter = forwardRef<HTMLDivElement, CardProps>(
     return (
       <div
         ref={ref}
-        className={`px-6 py-4 border-t border-gray-200 bg-gray-50 ${className}`}
+        className={`px-4 sm:px-6 py-3 sm:py-4 border-t border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 ${className}`}
         {...props}
       >
         {children}

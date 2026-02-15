@@ -11,7 +11,9 @@ import { CardOutput, SandboxResult, AnswerType } from "@/lib/types";
 interface CardCodeEditorProps {
   initialSource?: string;
   cardId?: string;
+  subjectId?: string;
   onSave?: (data: { name: string; description: string; answerType: AnswerType; source: string }) => Promise<void>;
+  onCardCreated?: (cardId: string) => void;
 }
 
 const DEFAULT_SOURCE = `function generate() {
@@ -27,7 +29,7 @@ const DEFAULT_SOURCE = `function generate() {
   };
 }`;
 
-export function CardCodeEditor({ initialSource, cardId, onSave }: CardCodeEditorProps) {
+export function CardCodeEditor({ initialSource, cardId, subjectId, onSave, onCardCreated }: CardCodeEditorProps) {
   const [source, setSource] = useState(initialSource || DEFAULT_SOURCE);
   const [testResults, setTestResults] = useState<SandboxResult[]>([]);
   const [isTesting, setIsTesting] = useState(false);
@@ -36,17 +38,20 @@ export function CardCodeEditor({ initialSource, cardId, onSave }: CardCodeEditor
   const [description, setDescription] = useState("");
   const [answerType, setAnswerType] = useState<AnswerType>("INTEGER");
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [sampleCount, setSampleCount] = useState(10);
 
   const handleTest = async () => {
     setIsTesting(true);
     setError(null);
+    setSuccessMessage(null);
     setTestResults([]);
 
     try {
       const res = await fetch("/api/cards/test", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ source, count: 10 }),
+        body: JSON.stringify({ source, count: sampleCount }),
       });
 
       const data = await res.json();
@@ -70,11 +75,44 @@ export function CardCodeEditor({ initialSource, cardId, onSave }: CardCodeEditor
   };
 
   const handleSave = async () => {
-    if (!onSave || !name || !description) return;
+    if (!name || !description) return;
 
     setIsSaving(true);
+    setError(null);
+    setSuccessMessage(null);
+
     try {
-      await onSave({ name, description, answerType, source });
+      // If custom onSave provided, use it
+      if (onSave) {
+        await onSave({ name, description, answerType, source });
+        return;
+      }
+
+      // Otherwise, save directly via API
+      const res = await fetch("/api/cards", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          functionSource: source,
+          name,
+          description,
+          answerType,
+          subjectId,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok && data.success) {
+        setSuccessMessage(`Card "${data.data.name}" created successfully!`);
+        setName("");
+        setDescription("");
+        if (onCardCreated) {
+          onCardCreated(data.data.id);
+        }
+      } else {
+        setError(data.error?.message || "Failed to save card");
+      }
     } catch (err) {
       setError("Failed to save card");
     } finally {
@@ -89,7 +127,7 @@ export function CardCodeEditor({ initialSource, cardId, onSave }: CardCodeEditor
       {/* Editor Panel */}
       <Card>
         <CardHeader>
-          <h2 className="text-lg font-semibold">Card Function</h2>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Card Function</h2>
         </CardHeader>
         <CardBody className="p-0">
           <Editor
@@ -107,21 +145,41 @@ export function CardCodeEditor({ initialSource, cardId, onSave }: CardCodeEditor
             }}
           />
         </CardBody>
-        <CardFooter className="flex gap-3">
+        <CardFooter className="flex gap-3 items-center">
           <Button onClick={handleTest} isLoading={isTesting} variant="secondary">
-            Test (10 samples)
+            Test
           </Button>
+          <div className="flex items-center gap-2">
+            <label className="text-sm text-gray-600 dark:text-gray-400">Samples:</label>
+            <input
+              type="number"
+              min="1"
+              max="50"
+              value={sampleCount}
+              onChange={(e) => setSampleCount(Math.min(50, Math.max(1, parseInt(e.target.value) || 10)))}
+              className="w-16 px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+            />
+          </div>
         </CardFooter>
       </Card>
 
       {/* Preview Panel */}
       <div className="space-y-6">
+        {/* Success Message */}
+        {successMessage && (
+          <Card className="border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20">
+            <CardBody>
+              <p className="text-green-700 dark:text-green-400">{successMessage}</p>
+            </CardBody>
+          </Card>
+        )}
+
         {/* Error Display */}
         {error && (
-          <Card className="border-red-200 bg-red-50">
+          <Card className="border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20">
             <CardBody>
-              <h3 className="font-semibold text-red-700 mb-2">Error</h3>
-              <pre className="text-sm text-red-600 whitespace-pre-wrap">{error}</pre>
+              <h3 className="font-semibold text-red-700 dark:text-red-400 mb-2">Error</h3>
+              <pre className="text-sm text-red-600 dark:text-red-300 whitespace-pre-wrap">{error}</pre>
             </CardBody>
           </Card>
         )}
@@ -130,17 +188,17 @@ export function CardCodeEditor({ initialSource, cardId, onSave }: CardCodeEditor
         {successResults.length > 0 && (
           <Card>
             <CardHeader>
-              <h2 className="text-lg font-semibold">Sample Outputs ({successResults.length})</h2>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Sample Outputs ({successResults.length})</h2>
             </CardHeader>
             <CardBody className="max-h-[300px] overflow-y-auto space-y-4">
               {successResults.slice(0, 5).map((result, index) => (
-                <div key={index} className="p-3 bg-gray-50 rounded-lg">
-                  <div className="text-sm text-gray-500 mb-1">Sample {index + 1}</div>
+                <div key={index} className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                  <div className="text-sm text-gray-500 dark:text-gray-400 mb-1">Sample {index + 1}</div>
                   <QuestionRenderer content={result.output.question} />
                   <div className="mt-2 text-sm">
-                    <span className="text-gray-500">Answer: </span>
-                    <span className="font-medium">{result.output.answer.correct}</span>
-                    <span className="text-gray-400 ml-2">({result.output.answer.type})</span>
+                    <span className="text-gray-500 dark:text-gray-400">Answer: </span>
+                    <span className="font-medium text-gray-900 dark:text-gray-100">{result.output.answer.correct}</span>
+                    <span className="text-gray-400 dark:text-gray-500 ml-2">({result.output.answer.type})</span>
                   </div>
                 </div>
               ))}
@@ -148,54 +206,52 @@ export function CardCodeEditor({ initialSource, cardId, onSave }: CardCodeEditor
           </Card>
         )}
 
-        {/* Save Form */}
-        {onSave && (
-          <Card>
-            <CardHeader>
-              <h2 className="text-lg font-semibold">Card Details</h2>
-            </CardHeader>
-            <CardBody className="space-y-4">
-              <Input
-                label="Name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="e.g., Two-Digit Addition"
-              />
-              <Input
-                label="Description"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="What does this card test?"
-              />
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Answer Type
-                </label>
-                <select
-                  value={answerType}
-                  onChange={(e) => setAnswerType(e.target.value as AnswerType)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                >
-                  <option value="INTEGER">Integer</option>
-                  <option value="DECIMAL">Decimal</option>
-                  <option value="TEXT">Text</option>
-                  <option value="FRACTION">Fraction</option>
-                  <option value="CHOICE">Multiple Choice</option>
-                </select>
-              </div>
-            </CardBody>
-            <CardFooter>
-              <Button
-                onClick={handleSave}
-                isLoading={isSaving}
-                disabled={!name || !description || successResults.length === 0}
-                className="w-full"
+        {/* Save Form - Always show */}
+        <Card>
+          <CardHeader>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Card Details</h2>
+          </CardHeader>
+          <CardBody className="space-y-4">
+            <Input
+              label="Name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g., Two-Digit Addition"
+            />
+            <Input
+              label="Description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="What does this card test?"
+            />
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Answer Type
+              </label>
+              <select
+                value={answerType}
+                onChange={(e) => setAnswerType(e.target.value as AnswerType)}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
               >
-                {cardId ? "Update Card" : "Create Card"}
-              </Button>
-            </CardFooter>
-          </Card>
-        )}
+                <option value="INTEGER">Integer</option>
+                <option value="DECIMAL">Decimal</option>
+                <option value="TEXT">Text</option>
+                <option value="FRACTION">Fraction</option>
+                <option value="CHOICE">Multiple Choice</option>
+              </select>
+            </div>
+          </CardBody>
+          <CardFooter>
+            <Button
+              onClick={handleSave}
+              isLoading={isSaving}
+              disabled={!name || !description || successResults.length === 0}
+              className="w-full"
+            >
+              {cardId ? "Update Card" : "Create Card"}
+            </Button>
+          </CardFooter>
+        </Card>
       </div>
     </div>
   );

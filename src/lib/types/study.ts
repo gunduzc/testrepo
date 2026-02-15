@@ -6,7 +6,7 @@ import { AnswerType, CardState, Rating } from "./enums";
 
 /**
  * Question presentation sent to client
- * Note: correctAnswer is NEVER included - it stays server-side
+ * Note: correctAnswer is only included in preview mode
  */
 export interface QuestionPresentation {
   sessionId: string;
@@ -16,6 +16,8 @@ export interface QuestionPresentation {
   choices?: string[];
   cardName: string;
   subjectName?: string;
+  /** Only included in preview mode for educators */
+  correctAnswer?: string;
 }
 
 /**
@@ -24,9 +26,12 @@ export interface QuestionPresentation {
 export interface SubmissionResult {
   correct: boolean;
   correctAnswer: string;
-  rating: Rating;
-  progress: ProgressSummary;
-  nextState: CardState;
+  /** Only present in regular study mode */
+  rating?: Rating;
+  progress: Partial<ProgressSummary>;
+  /** Only present in regular study mode */
+  nextState?: CardState;
+  canUndo?: boolean;
 }
 
 /**
