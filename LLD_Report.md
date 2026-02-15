@@ -72,7 +72,29 @@ This report uses UML conventions for class structures and sequence descriptions.
 
 ## 2. Architecture Overview
 
-### 2.1 Layered Architecture
+### 2.1 Instance Modes
+
+The platform supports three deployment modes via environment variable:
+
+```bash
+INSTANCE_MODE=community|publisher|school
+```
+
+| Mode | Who creates? | Who studies? | Access model | Classes? |
+|------|--------------|--------------|--------------|----------|
+| Community | Everyone | Everyone | Open browse | No |
+| Publisher | Educators only | Everyone | Open browse | No |
+| School | Educators only | Assigned students | Restricted | Yes |
+
+Registration is orthogonal:
+
+```bash
+REGISTRATION=open|domain|sso|invite|code
+```
+
+Visibility is mode-determined, not per-curriculum. Community/Publisher modes allow open browsing; School mode restricts to class assignments.
+
+### 2.2 Layered Architecture
 
 The platform is two layers within a single Next.js application:
 
@@ -80,7 +102,7 @@ The platform is two layers within a single Next.js application:
 
 **UX Layer (app/, components/):** React components consuming the Core Layer via API routes and server actions. All pages, editors, and dashboards. Zero business logic. Removable without breaking the API.
 
-### 2.2 Directory Structure
+### 2.3 Directory Structure
 
 ```
 /
@@ -106,7 +128,7 @@ The platform is two layers within a single Next.js application:
 └─ components/                  # Shared React components
 ```
 
-### 2.3 Package Diagram
+### 2.4 Package Diagram
 
 ```mermaid
 graph TB
@@ -163,6 +185,30 @@ graph TB
 - **API Routes (app/api/):** HTTP interface. Validates input, delegates to services, returns typed responses.
 - **UX (app/, components/):** React pages and components. Consumes API routes. No direct DB access.
 
+### 2.5 Behavioral Decisions
+
+#### Prerequisite Enforcement
+Mode defaults: school=hard, community/publisher=soft. Optional override via `PREREQ_ENFORCEMENT=hard|soft|none`.
+
+#### Subject Mastery
+A subject is mastered when all its cards reach Review state. Dependent subjects then unlock.
+
+#### Curriculum Updates
+Curricula are live - updates apply to enrolled students. New content respects dependencies. If student has already mastered a subject, new prerequisites below it are grandfathered.
+
+#### Progress Reset
+Community/Publisher: User can reset own progress. School: Educator resets student progress.
+
+#### Content Deletion
+Soft delete - cards/subjects marked deleted, progress preserved for analytics.
+
+#### Study Session
+- Binary rating (Pass/Fail)
+- Session-scoped undo history
+- No daily limits on new/review cards
+- FSRS priority for card ordering
+- No early review (scheduling respected)
+
 ---
 
 ## 3. Data Model
@@ -218,6 +264,7 @@ classDiagram
         +String id
         +String name
         +String description?
+        +String authorId
     }
 
     class CardSubject {
@@ -229,7 +276,6 @@ classDiagram
     class Curriculum {
         +String id
         +String name
-        +Boolean isPublic
         +String authorId
     }
 
@@ -407,15 +453,16 @@ Entry types: `prompt` (educator's description), `generation` (LLM's function), `
 
 #### `Subject`
 
-Topic area containing ordered cards. Nodes in the curriculum DAG.
+Topic area containing ordered cards. Subjects are global and can be reused across curricula. Subjects form a global DAG via SubjectPrerequisite.
 
 | Type | Attribute | Description |
 |------|-----------|-------------|
 | `String` | `id` | UUID |
 | `String` | `name` | e.g., "Two-Digit Addition" |
 | `String?` | `description` | |
+| `String` | `authorId` | FK to User (who created this subject) |
 
-**Relations:** cards[] (via CardSubject), curriculumSubjects[], prerequisiteOf[], prerequisites[]
+**Relations:** author, cards[] (via CardSubject), curriculumSubjects[], prerequisiteOf[], prerequisites[]
 
 #### `CardSubject`
 
@@ -436,8 +483,9 @@ DAG of subjects. Complete learning path.
 | `String` | `id` | UUID |
 | `String` | `name` | e.g., "Grade 3 Mathematics" |
 | `String?` | `description` | |
-| `Boolean` | `isPublic` | Visible in public library |
 | `String` | `authorId` | FK to User |
+
+**Note:** Visibility is determined by instance mode, not per-curriculum flag. See Instance Modes section.
 
 **Relations:** author, subjects[] (via CurriculumSubject), assignments[], individualEnrollments[]
 
@@ -478,16 +526,19 @@ One student's FSRS state for one card. Central study engine table. **Unique on (
 
 #### `ReviewLog`
 
-Immutable log of every review. Used for analytics and FSRS optimization.
+Immutable log of every review. Used for analytics and future algorithm improvements.
 
 | Type | Attribute | Description |
 |------|-----------|-------------|
 | `String` | `id` | UUID |
 | `String` | `userId` | FK |
 | `String` | `cardId` | FK |
-| `Rating` | `rating` | AGAIN \| HARD \| GOOD \| EASY |
+| `Rating` | `rating` | PASS \| FAIL |
 | `Boolean` | `correct` | |
 | `Int` | `responseTimeMs` | Question display to answer submission |
+| `AnswerMedium` | `answerMedium` | MENTAL, TYPING, PEN_PAPER, OTHER |
+| `String` | `generatedQuestion` | The actual question shown |
+| `String` | `generatedAnswer` | The correct answer for this instance |
 | `CardState` | `stateBeforeReview` | |
 | `Float` | `stabilityBefore` | |
 | `Float` | `difficultyBefore` | |
@@ -578,7 +629,8 @@ Per-class override for learning/relearning steps. **Unique on (classId, cardId).
 | `Role` | ADMIN, EDUCATOR, STUDENT | User role |
 | `AnswerType` | INTEGER, DECIMAL, TEXT, FRACTION, CHOICE | Input widget and validation |
 | `CardState` | NEW, LEARNING, REVIEW, RELEARNING | FSRS lifecycle state |
-| `Rating` | AGAIN, HARD, GOOD, EASY | FSRS review rating |
+| `Rating` | PASS, FAIL | Binary review rating (maps to FSRS Good/Again) |
+| `AnswerMedium` | MENTAL, TYPING, PEN_PAPER, OTHER | How student answered |
 
 ---
 
@@ -604,7 +656,7 @@ classDiagram
     }
 
     class FSRSService {
-        +computeRating(correct, responseTimeMs) Rating
+        +computeRating(correct) Rating
         +updateCardState(userId, cardId, rating) StudentCardState
         +getNextCard(userId, curriculumId) Card?
         +getStudentProgress(userId, curriculumId) ProgressSummary
@@ -676,7 +728,7 @@ Wraps ts-fsrs. Card state transitions, rating computation, next-card selection.
 
 | Method | Description |
 |--------|-------------|
-| `computeRating(correct: boolean, responseTimeMs: number): Rating` | Incorrect→AGAIN. Correct+fast→EASY. Correct+normal→GOOD. Correct+slow→HARD. |
+| `computeRating(correct: boolean): Rating` | Binary: Incorrect→FAIL, Correct→PASS. Maps to FSRS Again/Good internally. |
 | `updateCardState(userId, cardId, rating): Promise<StudentCardState>` | Applies FSRS algorithm. Updates StudentCardState. Inserts ReviewLog. Respects step overrides. |
 | `getNextCard(userId, curriculumId): Promise<{card, isNew} \| null>` | Selects highest-priority due card. Checks prerequisites. Overdue first, then new in order. Null if no cards due. |
 | `getStudentProgress(userId, curriculumId): Promise<ProgressSummary>` | Card counts per state per subject. Overall mastery %. |
