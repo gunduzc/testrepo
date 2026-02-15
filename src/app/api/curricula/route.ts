@@ -8,11 +8,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { curriculumService } from "@/services";
+import { canCreateContent } from "@/lib/instance-config";
 
 const createSchema = z.object({
   name: z.string().min(1).max(200),
   description: z.string().optional(),
-  isPublic: z.boolean().optional(),
 });
 
 export async function POST(request: NextRequest) {
@@ -25,9 +25,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!["ADMIN", "EDUCATOR"].includes(session.user.role)) {
+    if (!canCreateContent(session.user.role)) {
       return NextResponse.json(
-        { error: { code: "FORBIDDEN", message: "Only educators can create curricula" } },
+        { error: { code: "FORBIDDEN", message: "Not authorized to create curricula" } },
         { status: 403 }
       );
     }

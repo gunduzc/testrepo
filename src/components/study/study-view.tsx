@@ -189,7 +189,7 @@ export function StudyView({ curriculumId, previewMode = false }: StudyViewProps)
           )}
 
           <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mb-4 sm:mb-6 text-center">
-            <span>Progress: {result.progress.completionPercentage.toFixed(1)}%</span>
+            <span>Progress: {(result.progress?.completionPercentage ?? 0).toFixed(1)}%</span>
           </div>
 
           <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">

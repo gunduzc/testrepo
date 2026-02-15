@@ -10,7 +10,6 @@ interface Curriculum {
   id: string;
   name: string;
   description: string | null;
-  isPublic: boolean;
 }
 
 export default function EducatorDashboard() {
@@ -153,30 +152,19 @@ export default function EducatorDashboard() {
                       </p>
                     )}
                   </div>
-                  <div className="flex items-center gap-3">
-                    <span
-                      className={`px-2 py-1 text-xs rounded-full ${
-                        curriculum.isPublic
-                          ? "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200"
-                          : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400"
-                      }`}
-                    >
-                      {curriculum.isPublic ? "Public" : "Private"}
-                    </span>
-                    <svg
-                      className="w-5 h-5 text-gray-400"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M9 5l7 7-7 7"
-                      />
-                    </svg>
-                  </div>
+                  <svg
+                    className="w-5 h-5 text-gray-400"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 5l7 7-7 7"
+                    />
+                  </svg>
                 </CardBody>
               </Card>
             </Link>

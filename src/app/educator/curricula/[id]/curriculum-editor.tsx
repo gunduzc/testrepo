@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Checkbox } from "@/components/ui/checkbox";
 import { SubjectForm } from "@/components/educator/subject-form";
 import { PrerequisiteSelect } from "@/components/educator/prerequisite-select";
 import { CurriculumWithStructure } from "@/lib/types";
@@ -28,7 +27,6 @@ export function CurriculumEditor({ curriculum: initialCurriculum }: CurriculumEd
   // Edit form state
   const [editName, setEditName] = useState(curriculum.name);
   const [editDescription, setEditDescription] = useState(curriculum.description || "");
-  const [editIsPublic, setEditIsPublic] = useState(curriculum.isPublic);
   const [isSaving, setIsSaving] = useState(false);
 
   const refreshCurriculum = async () => {
@@ -48,7 +46,6 @@ export function CurriculumEditor({ curriculum: initialCurriculum }: CurriculumEd
         body: JSON.stringify({
           name: editName,
           description: editDescription,
-          isPublic: editIsPublic,
         }),
       });
 
@@ -57,7 +54,6 @@ export function CurriculumEditor({ curriculum: initialCurriculum }: CurriculumEd
           ...prev,
           name: editName,
           description: editDescription,
-          isPublic: editIsPublic,
         }));
         setIsEditingInfo(false);
       }
@@ -139,15 +135,6 @@ export function CurriculumEditor({ curriculum: initialCurriculum }: CurriculumEd
             )}
           </div>
           <div className="flex items-center gap-2">
-            <span
-              className={`px-2 py-1 text-xs rounded-full ${
-                curriculum.isPublic
-                  ? "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200"
-                  : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400"
-              }`}
-            >
-              {curriculum.isPublic ? "Public" : "Private"}
-            </span>
             <Button size="sm" variant="ghost" onClick={() => setIsEditingInfo(true)}>
               Edit
             </Button>
@@ -266,12 +253,12 @@ export function CurriculumEditor({ curriculum: initialCurriculum }: CurriculumEd
                     {subject.cards.length === 0 ? (
                       <p className="text-sm text-gray-500 dark:text-gray-400">
                         No cards yet.{" "}
-                        <button
-                          onClick={() => setCardPickerSubject(subject)}
+                        <Link
+                          href={`/educator/curricula/${curriculum.id}/subjects/${subject.id}/cards/new`}
                           className="text-blue-600 dark:text-blue-400 hover:underline"
                         >
                           Add some
-                        </button>
+                        </Link>
                       </p>
                     ) : (
                       <div className="space-y-2">
@@ -330,11 +317,6 @@ export function CurriculumEditor({ curriculum: initialCurriculum }: CurriculumEd
             label="Description"
             value={editDescription}
             onChange={(e) => setEditDescription(e.target.value)}
-          />
-          <Checkbox
-            label="Make this curriculum public"
-            checked={editIsPublic}
-            onChange={(e) => setEditIsPublic(e.target.checked)}
           />
           <div className="flex justify-end gap-3">
             <Button variant="ghost" onClick={() => setIsEditingInfo(false)}>

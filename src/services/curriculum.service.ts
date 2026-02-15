@@ -12,10 +12,12 @@ import {
   DAGValidationResult,
   SubjectWithDetails,
 } from "@/lib/types";
+import { getInstanceMode, canBrowseLibrary } from "@/lib/instance-config";
 
 export class CurriculumService {
   /**
    * Creates a new curriculum
+   * Note: Visibility is determined by INSTANCE_MODE, not per-curriculum
    */
   async createCurriculum(
     data: CreateCurriculumDTO,
@@ -25,7 +27,6 @@ export class CurriculumService {
       data: {
         name: data.name,
         description: data.description,
-        isPublic: data.isPublic ?? false,
         authorId,
       },
     });
@@ -64,7 +65,6 @@ export class CurriculumService {
       data: {
         ...(data.name && { name: data.name }),
         ...(data.description !== undefined && { description: data.description }),
-        ...(data.isPublic !== undefined && { isPublic: data.isPublic }),
       },
     });
 
@@ -72,11 +72,11 @@ export class CurriculumService {
   }
 
   /**
-   * Deletes a curriculum
+   * Soft-deletes a curriculum
    */
   async deleteCurriculum(curriculumId: string, userId: string): Promise<void> {
     const existing = await prisma.curriculum.findUnique({
-      where: { id: curriculumId },
+      where: { id: curriculumId, deletedAt: null },
       select: { authorId: true },
     });
 
@@ -93,7 +93,10 @@ export class CurriculumService {
       throw new Error("Not authorized to delete this curriculum");
     }
 
-    await prisma.curriculum.delete({ where: { id: curriculumId } });
+    await prisma.curriculum.update({
+      where: { id: curriculumId },
+      data: { deletedAt: new Date() },
+    });
   }
 
   /**
@@ -129,6 +132,7 @@ export class CurriculumService {
         data: {
           name: data.name,
           description: data.description,
+          authorId: userId, // Subject author is the user creating it
         },
       });
 
@@ -153,14 +157,13 @@ export class CurriculumService {
     data: UpdateSubjectDTO,
     userId: string
   ): Promise<{ id: string; name: string }> {
-    // Check if user can modify any curriculum containing this subject
-    const subjectCurricula = await prisma.curriculumSubject.findFirst({
-      where: { subjectId },
-      include: { curriculum: true },
+    const existingSubject = await prisma.subject.findUnique({
+      where: { id: subjectId, deletedAt: null },
+      select: { authorId: true },
     });
 
-    if (!subjectCurricula) {
-      throw new Error("Subject not found in any curriculum");
+    if (!existingSubject) {
+      throw new Error("Subject not found");
     }
 
     const user = await prisma.user.findUnique({
@@ -168,7 +171,7 @@ export class CurriculumService {
       select: { role: true },
     });
 
-    if (subjectCurricula.curriculum.authorId !== userId && user?.role !== "ADMIN") {
+    if (existingSubject.authorId !== userId && user?.role !== "ADMIN") {
       throw new Error("Not authorized to modify this subject");
     }
 
@@ -399,17 +402,17 @@ export class CurriculumService {
   }
 
   /**
-   * Deletes a subject from a curriculum
+   * Soft-deletes a subject
    */
   async deleteSubject(subjectId: string, userId: string): Promise<void> {
     // Check authorization
-    const subjectCurricula = await prisma.curriculumSubject.findFirst({
-      where: { subjectId },
-      include: { curriculum: true },
+    const subject = await prisma.subject.findUnique({
+      where: { id: subjectId, deletedAt: null },
+      select: { authorId: true },
     });
 
-    if (!subjectCurricula) {
-      throw new Error("Subject not found in any curriculum");
+    if (!subject) {
+      throw new Error("Subject not found");
     }
 
     const user = await prisma.user.findUnique({
@@ -417,31 +420,14 @@ export class CurriculumService {
       select: { role: true },
     });
 
-    if (subjectCurricula.curriculum.authorId !== userId && user?.role !== "ADMIN") {
+    if (subject.authorId !== userId && user?.role !== "ADMIN") {
       throw new Error("Not authorized to delete this subject");
     }
 
-    // Delete in transaction: prerequisites, card-subject links, curriculum-subject link, then subject
-    await prisma.$transaction(async (tx) => {
-      // Remove all prerequisite relationships
-      await tx.subjectPrerequisite.deleteMany({
-        where: { OR: [{ subjectId }, { prerequisiteId: subjectId }] },
-      });
-
-      // Remove all card-subject links
-      await tx.cardSubject.deleteMany({
-        where: { subjectId },
-      });
-
-      // Remove curriculum-subject link
-      await tx.curriculumSubject.deleteMany({
-        where: { subjectId },
-      });
-
-      // Delete the subject
-      await tx.subject.delete({
-        where: { id: subjectId },
-      });
+    // Soft delete the subject
+    await prisma.subject.update({
+      where: { id: subjectId },
+      data: { deletedAt: new Date() },
     });
   }
 
@@ -522,13 +508,15 @@ export class CurriculumService {
     curriculumId: string
   ): Promise<CurriculumWithStructure | null> {
     const curriculum = await prisma.curriculum.findUnique({
-      where: { id: curriculumId },
+      where: { id: curriculumId, deletedAt: null },
       include: {
         curriculumSubjects: {
+          where: { subject: { deletedAt: null } },
           include: {
             subject: {
               include: {
                 cardSubjects: {
+                  where: { card: { deletedAt: null } },
                   include: { card: true },
                   orderBy: { position: "asc" },
                 },
@@ -565,25 +553,89 @@ export class CurriculumService {
       id: curriculum.id,
       name: curriculum.name,
       description: curriculum.description,
-      isPublic: curriculum.isPublic,
       authorId: curriculum.authorId,
       subjects,
     };
   }
 
   /**
-   * Lists public curricula for the library
+   * Lists browsable curricula for the library
+   * In community/publisher modes: all non-deleted curricula
+   * In school mode: only assigned curricula for students
    */
-  async listPublicCurricula(options?: {
-    limit?: number;
-    offset?: number;
-    search?: string;
-  }): Promise<{
+  async listBrowsableCurricula(
+    userId: string,
+    userRole: string,
+    options?: {
+      limit?: number;
+      offset?: number;
+      search?: string;
+    }
+  ): Promise<{
     curricula: { id: string; name: string; description: string | null; authorId: string }[];
     total: number;
   }> {
+    const mode = getInstanceMode();
+
+    // Check if user has class enrollment (for school mode)
+    const hasClassEnrollment = await prisma.classEnrollment.count({
+      where: { userId },
+    }) > 0;
+
+    // In school mode, students only see assigned curricula
+    if (mode === "school" && !canBrowseLibrary(userRole, hasClassEnrollment)) {
+      // Get curricula assigned to user's classes
+      const assignedCurricula = await prisma.curriculum.findMany({
+        where: {
+          deletedAt: null,
+          assignments: {
+            some: {
+              class: {
+                enrollments: {
+                  some: { userId },
+                },
+              },
+            },
+          },
+          ...(options?.search && {
+            OR: [
+              { name: { contains: options.search } },
+              { description: { contains: options.search } },
+            ],
+          }),
+        },
+        select: {
+          id: true,
+          name: true,
+          description: true,
+          authorId: true,
+        },
+        take: options?.limit,
+        skip: options?.offset,
+        orderBy: { createdAt: "desc" },
+      });
+
+      const total = await prisma.curriculum.count({
+        where: {
+          deletedAt: null,
+          assignments: {
+            some: {
+              class: {
+                enrollments: {
+                  some: { userId },
+                },
+              },
+            },
+          },
+        },
+      });
+
+      return { curricula: assignedCurricula, total };
+    }
+
+    // Community/publisher modes: all curricula are browsable
     const where = {
-      isPublic: true,
+      deletedAt: null,
       ...(options?.search && {
         OR: [
           { name: { contains: options.search } },
@@ -618,43 +670,67 @@ export class CurriculumService {
     authorId: string,
     options?: { limit?: number; offset?: number }
   ): Promise<{
-    curricula: { id: string; name: string; description: string | null; isPublic: boolean }[];
+    curricula: { id: string; name: string; description: string | null }[];
     total: number;
   }> {
     const [curricula, total] = await Promise.all([
       prisma.curriculum.findMany({
-        where: { authorId },
+        where: { authorId, deletedAt: null },
         select: {
           id: true,
           name: true,
           description: true,
-          isPublic: true,
         },
         take: options?.limit,
         skip: options?.offset,
         orderBy: { updatedAt: "desc" },
       }),
-      prisma.curriculum.count({ where: { authorId } }),
+      prisma.curriculum.count({ where: { authorId, deletedAt: null } }),
     ]);
 
     return { curricula, total };
   }
 
   /**
-   * Enrolls a user in a public curriculum
+   * Enrolls a user in a curriculum
+   * In community/publisher modes: anyone can enroll in any curriculum
+   * In school mode: students can only enroll in assigned curricula
    */
   async enrollUser(curriculumId: string, userId: string): Promise<void> {
     const curriculum = await prisma.curriculum.findUnique({
-      where: { id: curriculumId },
-      select: { isPublic: true },
+      where: { id: curriculumId, deletedAt: null },
     });
 
     if (!curriculum) {
       throw new Error("Curriculum not found");
     }
 
-    if (!curriculum.isPublic) {
-      throw new Error("Cannot enroll in private curriculum");
+    const mode = getInstanceMode();
+
+    // In school mode, verify the curriculum is assigned to user's class
+    if (mode === "school") {
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { role: true },
+      });
+
+      // Educators/admins can enroll in anything
+      if (user?.role !== "EDUCATOR" && user?.role !== "ADMIN") {
+        const isAssigned = await prisma.curriculumAssignment.findFirst({
+          where: {
+            curriculumId,
+            class: {
+              enrollments: {
+                some: { userId },
+              },
+            },
+          },
+        });
+
+        if (!isAssigned) {
+          throw new Error("Curriculum not assigned to your class");
+        }
+      }
     }
 
     // Use upsert to handle already enrolled case

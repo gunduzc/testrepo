@@ -19,13 +19,15 @@ export async function GET(
     const { id } = await params;
 
     const curriculum = await prisma.curriculum.findUnique({
-      where: { id },
+      where: { id, deletedAt: null },
       include: {
         curriculumSubjects: {
+          where: { subject: { deletedAt: null } },
           include: {
             subject: {
               include: {
                 cardSubjects: {
+                  where: { card: { deletedAt: null } },
                   include: { card: true },
                   orderBy: { position: "asc" },
                 },
@@ -51,7 +53,6 @@ export async function GET(
       curriculum: {
         name: curriculum.name,
         description: curriculum.description,
-        isPublic: curriculum.isPublic,
         subjects: curriculum.curriculumSubjects.map((cs) => ({
           name: cs.subject.name,
           description: cs.subject.description,

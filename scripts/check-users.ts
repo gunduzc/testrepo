@@ -42,7 +42,7 @@ async function main() {
 
   // Enroll student in existing curriculum
   const student = await prisma.user.findUnique({ where: { email: 'student@example.com' } });
-  const curriculum = await prisma.curriculum.findFirst({ where: { isPublic: true } });
+  const curriculum = await prisma.curriculum.findFirst({ where: { deletedAt: null } });
 
   if (student && curriculum) {
     await prisma.userCurriculumEnrollment.upsert({

@@ -40,8 +40,8 @@ export async function GET(request: NextRequest) {
           createdAt: true,
           _count: {
             select: {
-              curricula: true,
-              cards: true,
+              authoredCurricula: true,
+              authoredCards: true,
             },
           },
         },

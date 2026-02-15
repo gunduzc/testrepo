@@ -23,9 +23,10 @@ export default async function AdminDashboard() {
   });
 
   const recentCurricula = await prisma.curriculum.findMany({
+    where: { deletedAt: null },
     take: 5,
     orderBy: { createdAt: "desc" },
-    select: { id: true, name: true, isPublic: true, createdAt: true, author: { select: { name: true } } },
+    select: { id: true, name: true, createdAt: true, author: { select: { name: true } } },
   });
 
   const roleStats = usersByRole.reduce((acc, r) => {
@@ -136,12 +137,8 @@ export default async function AdminDashboard() {
                     <div className="font-medium text-gray-900 dark:text-gray-100">{curriculum.name}</div>
                     <div className="text-sm text-gray-500 dark:text-gray-400">by {curriculum.author?.name}</div>
                   </div>
-                  <span className={`px-2 py-1 text-xs rounded-full ${
-                    curriculum.isPublic
-                      ? "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200"
-                      : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400"
-                  }`}>
-                    {curriculum.isPublic ? "Public" : "Private"}
+                  <span className="text-xs text-gray-400 dark:text-gray-500">
+                    {new Date(curriculum.createdAt).toLocaleDateString()}
                   </span>
                 </div>
               ))}

@@ -15,18 +15,18 @@ export async function GET(request: NextRequest) {
 
     const url = new URL(request.url);
     const search = url.searchParams.get("search") || "";
-    const isPublic = url.searchParams.get("isPublic");
+    const includeDeleted = url.searchParams.get("includeDeleted") === "true";
     const limit = parseInt(url.searchParams.get("limit") || "50");
     const offset = parseInt(url.searchParams.get("offset") || "0");
 
     const where = {
+      ...(!includeDeleted && { deletedAt: null }),
       ...(search && {
         OR: [
           { name: { contains: search } },
           { description: { contains: search } },
         ],
       }),
-      ...(isPublic !== null && isPublic !== "" && { isPublic: isPublic === "true" }),
     };
 
     const [curricula, total] = await Promise.all([
@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
           id: true,
           name: true,
           description: true,
-          isPublic: true,
+          deletedAt: true,
           createdAt: true,
           author: {
             select: { name: true, email: true },

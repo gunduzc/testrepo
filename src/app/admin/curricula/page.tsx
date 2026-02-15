@@ -10,7 +10,7 @@ interface Curriculum {
   id: string;
   name: string;
   description: string | null;
-  isPublic: boolean;
+  deletedAt: string | null;
   createdAt: string;
   author: {
     name: string | null;
@@ -25,20 +25,19 @@ export default function AdminCurriculaPage() {
   const [curricula, setCurricula] = useState<Curriculum[]>([]);
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState("");
-  const [publicFilter, setPublicFilter] = useState("");
+  const [includeDeleted, setIncludeDeleted] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchCurricula();
-  }, [search, publicFilter]);
+  }, [search, includeDeleted]);
 
   const fetchCurricula = async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
       if (search) params.set("search", search);
-      if (publicFilter) params.set("isPublic", publicFilter);
-      params.set("all", "true"); // Admin flag to get all curricula
+      if (includeDeleted) params.set("includeDeleted", "true");
 
       const res = await fetch(`/api/admin/curricula?${params}`);
       const data = await res.json();
@@ -50,24 +49,6 @@ export default function AdminCurriculaPage() {
       console.error("Failed to fetch curricula:", error);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleTogglePublic = async (curriculumId: string, currentPublic: boolean) => {
-    try {
-      const res = await fetch(`/api/curricula/${curriculumId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ isPublic: !currentPublic }),
-      });
-
-      if (res.ok) {
-        setCurricula((prev) =>
-          prev.map((c) => (c.id === curriculumId ? { ...c, isPublic: !currentPublic } : c))
-        );
-      }
-    } catch (error) {
-      console.error("Failed to toggle public:", error);
     }
   };
 
@@ -100,7 +81,7 @@ export default function AdminCurriculaPage() {
 
       {/* Filters */}
       <Card>
-        <CardBody className="flex flex-wrap gap-4">
+        <CardBody className="flex flex-wrap gap-4 items-center">
           <div className="flex-1 min-w-[200px]">
             <Input
               placeholder="Search by name..."
@@ -108,15 +89,15 @@ export default function AdminCurriculaPage() {
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
-          <select
-            value={publicFilter}
-            onChange={(e) => setPublicFilter(e.target.value)}
-            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-          >
-            <option value="">All Visibility</option>
-            <option value="true">Public</option>
-            <option value="false">Private</option>
-          </select>
+          <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+            <input
+              type="checkbox"
+              checked={includeDeleted}
+              onChange={(e) => setIncludeDeleted(e.target.checked)}
+              className="rounded border-gray-300 dark:border-gray-600"
+            />
+            Include deleted
+          </label>
         </CardBody>
       </Card>
 
@@ -142,7 +123,7 @@ export default function AdminCurriculaPage() {
                       Subjects
                     </th>
                     <th className="text-left px-4 py-3 text-sm font-medium text-gray-700 dark:text-gray-300">
-                      Visibility
+                      Status
                     </th>
                     <th className="text-left px-4 py-3 text-sm font-medium text-gray-700 dark:text-gray-300">
                       Created
@@ -172,16 +153,15 @@ export default function AdminCurriculaPage() {
                         {curriculum._count.curriculumSubjects}
                       </td>
                       <td className="px-4 py-3">
-                        <button
-                          onClick={() => handleTogglePublic(curriculum.id, curriculum.isPublic)}
+                        <span
                           className={`px-2 py-1 text-xs rounded-full ${
-                            curriculum.isPublic
-                              ? "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200"
-                              : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400"
+                            curriculum.deletedAt
+                              ? "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200"
+                              : "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200"
                           }`}
                         >
-                          {curriculum.isPublic ? "Public" : "Private"}
-                        </button>
+                          {curriculum.deletedAt ? "Deleted" : "Active"}
+                        </span>
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
                         {new Date(curriculum.createdAt).toLocaleDateString()}

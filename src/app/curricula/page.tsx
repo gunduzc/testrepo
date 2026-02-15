@@ -7,8 +7,16 @@ import { ThemeToggle } from "@/components/theme-toggle";
 
 export default async function CurriculaPage() {
   const session = await auth();
-  const { curricula } = await curriculumService.listPublicCurricula({ limit: 50 });
   const isEducator = session?.user && ["ADMIN", "EDUCATOR"].includes(session.user.role);
+
+  // Get browsable curricula based on user and instance mode
+  const { curricula } = session?.user
+    ? await curriculumService.listBrowsableCurricula(
+        session.user.id,
+        session.user.role,
+        { limit: 50 }
+      )
+    : { curricula: [] };
 
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-950 py-4 sm:py-8">

@@ -9,11 +9,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { curriculumService } from "@/services";
+import { canCreateContent } from "@/lib/instance-config";
 
 const updateSchema = z.object({
   name: z.string().min(1).max(200).optional(),
   description: z.string().optional(),
-  isPublic: z.boolean().optional(),
 });
 
 export async function GET(
@@ -62,9 +62,9 @@ export async function PUT(
       );
     }
 
-    if (!["ADMIN", "EDUCATOR"].includes(session.user.role)) {
+    if (!canCreateContent(session.user.role)) {
       return NextResponse.json(
-        { error: { code: "FORBIDDEN", message: "Only educators can update curricula" } },
+        { error: { code: "FORBIDDEN", message: "Not authorized to update curricula" } },
         { status: 403 }
       );
     }
@@ -120,9 +120,9 @@ export async function DELETE(
       );
     }
 
-    if (!["ADMIN", "EDUCATOR"].includes(session.user.role)) {
+    if (!canCreateContent(session.user.role)) {
       return NextResponse.json(
-        { error: { code: "FORBIDDEN", message: "Only educators can delete curricula" } },
+        { error: { code: "FORBIDDEN", message: "Not authorized to delete curricula" } },
         { status: 403 }
       );
     }

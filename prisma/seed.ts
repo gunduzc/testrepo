@@ -15,7 +15,6 @@ async function seed() {
     data: {
       name: 'Basic Arithmetic',
       description: 'Learn addition, subtraction, multiplication and division',
-      isPublic: true,
       authorId: educator.id,
     }
   });
@@ -23,15 +22,15 @@ async function seed() {
 
   // Create subjects
   const addition = await prisma.subject.create({
-    data: { name: 'Addition', description: 'Adding numbers together' }
+    data: { name: 'Addition', description: 'Adding numbers together', authorId: educator.id }
   });
 
   const subtraction = await prisma.subject.create({
-    data: { name: 'Subtraction', description: 'Subtracting numbers' }
+    data: { name: 'Subtraction', description: 'Subtracting numbers', authorId: educator.id }
   });
 
   const multiplication = await prisma.subject.create({
-    data: { name: 'Multiplication', description: 'Multiplying numbers' }
+    data: { name: 'Multiplication', description: 'Multiplying numbers', authorId: educator.id }
   });
 
   // Link subjects to curriculum

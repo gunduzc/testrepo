@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { sandboxService } from "@/services/sandbox.service";
+import { canCreateContent } from "@/lib/instance-config";
 
 interface ImportCard {
   name: string;
@@ -24,7 +25,6 @@ interface ImportSubject {
 interface ImportCurriculum {
   name: string;
   description?: string | null;
-  isPublic?: boolean;
   subjects: ImportSubject[];
 }
 
@@ -44,9 +44,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!["ADMIN", "EDUCATOR"].includes(session.user.role)) {
+    if (!canCreateContent(session.user.role)) {
       return NextResponse.json(
-        { error: { code: "FORBIDDEN", message: "Only educators can import curricula" } },
+        { error: { code: "FORBIDDEN", message: "Not authorized to import curricula" } },
         { status: 403 }
       );
     }
@@ -94,7 +94,6 @@ export async function POST(request: NextRequest) {
         data: {
           name: curriculumData.name,
           description: curriculumData.description || null,
-          isPublic: curriculumData.isPublic ?? false,
           authorId: session.user!.id,
         },
       });
@@ -107,6 +106,7 @@ export async function POST(request: NextRequest) {
           data: {
             name: subjectData.name,
             description: subjectData.description || null,
+            authorId: session.user!.id,
           },
         });
 

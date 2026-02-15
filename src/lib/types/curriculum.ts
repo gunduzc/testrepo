@@ -4,11 +4,11 @@
 
 /**
  * DTO for creating a curriculum
+ * Note: Visibility is determined by INSTANCE_MODE, not per-curriculum
  */
 export interface CreateCurriculumDTO {
   name: string;
   description?: string;
-  isPublic?: boolean;
 }
 
 /**
@@ -17,7 +17,6 @@ export interface CreateCurriculumDTO {
 export interface UpdateCurriculumDTO {
   name?: string;
   description?: string;
-  isPublic?: boolean;
 }
 
 /**
@@ -60,12 +59,12 @@ export interface SubjectWithDetails {
 
 /**
  * Curriculum with full structure
+ * Note: Visibility is determined by INSTANCE_MODE, not stored per-curriculum
  */
 export interface CurriculumWithStructure {
   id: string;
   name: string;
   description?: string | null;
-  isPublic: boolean;
   authorId: string;
   subjects: SubjectWithDetails[];
 }

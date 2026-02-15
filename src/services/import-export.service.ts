@@ -287,6 +287,7 @@ export class ImportExportService {
         data: {
           name: data.data.name,
           description: data.data.description,
+          authorId,
         },
       });
 
@@ -428,7 +429,6 @@ export class ImportExportService {
         data: {
           name: data.data.name,
           description: data.data.description,
-          isPublic: false,
           authorId,
         },
       });
@@ -441,6 +441,7 @@ export class ImportExportService {
           data: {
             name: subjectData.name,
             description: subjectData.description,
+            authorId,
           },
         });
 

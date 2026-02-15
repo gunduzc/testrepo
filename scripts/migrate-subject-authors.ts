@@ -1,10 +1,10 @@
 /**
  * Migration script: Assign authors to existing subjects
  *
- * For each subject without an author:
- * - Find the curriculum it belongs to
- * - Use the curriculum's author as the subject's author
- * - If no curriculum, find any educator or admin to assign
+ * NOTE: This script was for migrating subjects when authorId was optional.
+ * Now that authorId is required, this script is deprecated but kept for reference.
+ *
+ * If you need to run this, temporarily make authorId optional in the schema first.
  */
 
 import { PrismaClient } from '@prisma/client';
@@ -12,63 +12,15 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('Migrating subject authors...');
+  console.log('Migration script for subject authors.');
+  console.log('NOTE: This script is deprecated - authorId is now required on subjects.');
+  console.log('All subjects should already have an authorId assigned.');
 
-  // Find subjects without authors
-  const subjectsWithoutAuthor = await prisma.subject.findMany({
-    where: { authorId: null },
-    include: {
-      curriculumSubjects: {
-        include: {
-          curriculum: true,
-        },
-      },
-    },
-  });
+  // Count subjects for verification
+  const count = await prisma.subject.count();
+  console.log(`Total subjects in database: ${count}`);
 
-  console.log(`Found ${subjectsWithoutAuthor.length} subjects without authors`);
-
-  for (const subject of subjectsWithoutAuthor) {
-    let authorId: string | null = null;
-
-    // Try to get author from the first curriculum this subject belongs to
-    if (subject.curriculumSubjects.length > 0) {
-      authorId = subject.curriculumSubjects[0].curriculum.authorId;
-      console.log(`Subject "${subject.name}" -> using curriculum author`);
-    }
-
-    // If no curriculum, find any educator or admin
-    if (!authorId) {
-      const fallbackUser = await prisma.user.findFirst({
-        where: {
-          role: { in: ['EDUCATOR', 'ADMIN'] },
-        },
-      });
-      if (fallbackUser) {
-        authorId = fallbackUser.id;
-        console.log(`Subject "${subject.name}" -> using fallback user ${fallbackUser.email}`);
-      }
-    }
-
-    if (authorId) {
-      await prisma.subject.update({
-        where: { id: subject.id },
-        data: { authorId },
-      });
-      console.log(`  Updated subject "${subject.name}" with author ${authorId}`);
-    } else {
-      console.warn(`  WARNING: Could not find author for subject "${subject.name}"`);
-    }
-  }
-
-  console.log('Migration complete!');
+  await prisma.$disconnect();
 }
 
-main()
-  .catch((e) => {
-    console.error(e);
-    process.exit(1);
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
-  });
+main().catch(console.error);

@@ -30,7 +30,6 @@ interface CurriculumDetail {
   id: string;
   name: string;
   description: string | null;
-  isPublic: boolean;
   authorId: string;
   subjects: Subject[];
 }
@@ -153,8 +152,7 @@ export default function CurriculumDetailPage() {
               <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">
                 {curriculum.subjects.length} subject
                 {curriculum.subjects.length !== 1 ? "s" : ""} &middot;{" "}
-                {totalCards} card{totalCards !== 1 ? "s" : ""} &middot;{" "}
-                {curriculum.isPublic ? "Public" : "Private"}
+                {totalCards} card{totalCards !== 1 ? "s" : ""}
               </p>
             </div>
             <div className="flex gap-2 w-full sm:w-auto">
