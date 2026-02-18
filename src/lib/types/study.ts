@@ -6,7 +6,7 @@ import { AnswerType, CardState, Rating } from "./enums";
 
 /**
  * Question presentation sent to client
- * Note: correctAnswer is only included in preview mode
+ * Note: correctAnswer and solution are only included in preview mode
  */
 export interface QuestionPresentation {
   sessionId: string;
@@ -18,6 +18,8 @@ export interface QuestionPresentation {
   subjectName?: string;
   /** Only included in preview mode for educators */
   correctAnswer?: string;
+  /** Only included in preview mode for educators */
+  solution?: string;
 }
 
 /**
@@ -26,6 +28,8 @@ export interface QuestionPresentation {
 export interface SubmissionResult {
   correct: boolean;
   correctAnswer: string;
+  /** Solution/explanation shown after submission */
+  solution: string;
   /** Only present in regular study mode */
   rating?: Rating;
   progress: Partial<ProgressSummary>;

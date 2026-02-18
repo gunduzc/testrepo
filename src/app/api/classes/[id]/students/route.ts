@@ -1,6 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+
+const addStudentSchema = z.object({
+  email: z.string().email(),
+});
+
+const removeStudentSchema = z.object({
+  userId: z.string().min(1),
+});
 
 // POST: Add student to class
 export async function POST(
@@ -17,7 +26,17 @@ export async function POST(
     }
 
     const { id } = await params;
-    const { email } = await request.json();
+    const body = await request.json();
+    const parsed = addStudentSchema.safeParse(body);
+
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: { code: "VALIDATION_ERROR", message: "Valid email is required" } },
+        { status: 400 }
+      );
+    }
+
+    const { email } = parsed.data;
 
     const classData = await prisma.class.findUnique({ where: { id } });
 
@@ -90,7 +109,17 @@ export async function DELETE(
     }
 
     const { id } = await params;
-    const { userId } = await request.json();
+    const body = await request.json();
+    const parsed = removeStudentSchema.safeParse(body);
+
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: { code: "VALIDATION_ERROR", message: "userId is required" } },
+        { status: 400 }
+      );
+    }
+
+    const { userId } = parsed.data;
 
     const classData = await prisma.class.findUnique({ where: { id } });
 
@@ -105,6 +134,18 @@ export async function DELETE(
       return NextResponse.json(
         { error: { code: "FORBIDDEN", message: "Access denied" } },
         { status: 403 }
+      );
+    }
+
+    // Check if enrollment exists
+    const enrollment = await prisma.classEnrollment.findUnique({
+      where: { userId_classId: { userId, classId: id } },
+    });
+
+    if (!enrollment) {
+      return NextResponse.json(
+        { error: { code: "NOT_FOUND", message: "Student not enrolled in this class" } },
+        { status: 404 }
       );
     }
 

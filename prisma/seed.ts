@@ -59,9 +59,11 @@ async function seed() {
       functionSource: `function generate() {
   const a = Math.floor(Math.random() * 20) + 1;
   const b = Math.floor(Math.random() * 20) + 1;
+  const sum = a + b;
   return {
     question: "What is " + a + " + " + b + "?",
-    answer: { correct: String(a + b), type: "INTEGER" }
+    answer: { correct: String(sum), type: "INTEGER" },
+    solution: a + " + " + b + " = " + sum
   };
 }`,
       authorId: educator.id,
@@ -76,9 +78,11 @@ async function seed() {
       functionSource: `function generate() {
   const a = Math.floor(Math.random() * 20) + 10;
   const b = Math.floor(Math.random() * 10) + 1;
+  const diff = a - b;
   return {
     question: "What is " + a + " - " + b + "?",
-    answer: { correct: String(a - b), type: "INTEGER" }
+    answer: { correct: String(diff), type: "INTEGER" },
+    solution: a + " - " + b + " = " + diff
   };
 }`,
       authorId: educator.id,
@@ -93,9 +97,11 @@ async function seed() {
       functionSource: `function generate() {
   const a = Math.floor(Math.random() * 10) + 1;
   const b = Math.floor(Math.random() * 10) + 1;
+  const product = a * b;
   return {
     question: "What is " + a + " × " + b + "?",
-    answer: { correct: String(a * b), type: "INTEGER" }
+    answer: { correct: String(product), type: "INTEGER" },
+    solution: a + " × " + b + " = " + product
   };
 }`,
       authorId: educator.id,

@@ -258,6 +258,7 @@ model ActiveStudySession {
   correctAnswer   String
   answerType      String   // AnswerType enum
   validateFnSource String?
+  solution        String   // Solution/explanation to show after submission
   presentedAt     DateTime @default(now())
   expiresAt       DateTime
 

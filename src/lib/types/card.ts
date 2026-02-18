@@ -15,6 +15,7 @@ export interface CardOutput {
     choices?: string[];
     validate?: string; // Optional custom validation function source
   };
+  solution: string; // Explanation of steps or just the answer
 }
 
 /**

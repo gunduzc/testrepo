@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+
+const curriculumSchema = z.object({
+  curriculumId: z.string().min(1),
+});
 
 // POST: Assign curriculum to class
 export async function POST(
@@ -17,7 +22,17 @@ export async function POST(
     }
 
     const { id } = await params;
-    const { curriculumId } = await request.json();
+    const body = await request.json();
+    const parsed = curriculumSchema.safeParse(body);
+
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: { code: "VALIDATION_ERROR", message: "curriculumId is required" } },
+        { status: 400 }
+      );
+    }
+
+    const { curriculumId } = parsed.data;
 
     const classData = await prisma.class.findUnique({ where: { id } });
 
@@ -90,7 +105,17 @@ export async function DELETE(
     }
 
     const { id } = await params;
-    const { curriculumId } = await request.json();
+    const body = await request.json();
+    const parsed = curriculumSchema.safeParse(body);
+
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: { code: "VALIDATION_ERROR", message: "curriculumId is required" } },
+        { status: 400 }
+      );
+    }
+
+    const { curriculumId } = parsed.data;
 
     const classData = await prisma.class.findUnique({ where: { id } });
 
@@ -105,6 +130,18 @@ export async function DELETE(
       return NextResponse.json(
         { error: { code: "FORBIDDEN", message: "Access denied" } },
         { status: 403 }
+      );
+    }
+
+    // Check if assignment exists
+    const assignment = await prisma.curriculumAssignment.findUnique({
+      where: { classId_curriculumId: { classId: id, curriculumId } },
+    });
+
+    if (!assignment) {
+      return NextResponse.json(
+        { error: { code: "NOT_FOUND", message: "Curriculum not assigned to this class" } },
+        { status: 404 }
       );
     }
 

@@ -13,17 +13,21 @@ import CryptoJS from "crypto-js";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 
-const ENCRYPTION_KEY = process.env.TWO_FACTOR_SECRET_KEY || "default-secret-key-change-in-production";
+const ENCRYPTION_KEY = process.env.TWO_FACTOR_SECRET_KEY;
+if (!ENCRYPTION_KEY && process.env.NODE_ENV === "production") {
+  throw new Error("TWO_FACTOR_SECRET_KEY must be set in production");
+}
+const SAFE_ENCRYPTION_KEY = ENCRYPTION_KEY || "dev-only-secret-key";
 const APP_NAME = "SpacedRepetition";
 
 // Encrypt TOTP secret for storage
 function encryptSecret(secret: string): string {
-  return CryptoJS.AES.encrypt(secret, ENCRYPTION_KEY).toString();
+  return CryptoJS.AES.encrypt(secret, SAFE_ENCRYPTION_KEY).toString();
 }
 
 // Decrypt TOTP secret
 function decryptSecret(encrypted: string): string {
-  const bytes = CryptoJS.AES.decrypt(encrypted, ENCRYPTION_KEY);
+  const bytes = CryptoJS.AES.decrypt(encrypted, SAFE_ENCRYPTION_KEY);
   return bytes.toString(CryptoJS.enc.Utf8);
 }
 

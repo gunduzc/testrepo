@@ -107,7 +107,7 @@ export class StudySessionService {
       },
     });
 
-    // Create new session storing the correct answer
+    // Create new session storing the correct answer and solution
     const expiresAt = new Date(Date.now() + SESSION_TTL_MS);
     const session = await prisma.activeStudySession.create({
       data: {
@@ -116,6 +116,7 @@ export class StudySessionService {
         correctAnswer: cardOutput.answer.correct,
         answerType: cardOutput.answer.type,
         validateFnSource: cardOutput.answer.validate,
+        solution: cardOutput.solution,
         expiresAt,
       },
     });
@@ -228,6 +229,7 @@ export class StudySessionService {
     return {
       correct,
       correctAnswer: session.correctAnswer,
+      solution: session.solution,
       rating,
       progress,
       nextState: newState,
@@ -283,7 +285,7 @@ export class StudySessionService {
 
     const cardOutput = result.output;
 
-    // Return question WITH correct answer for preview
+    // Return question WITH correct answer and solution for preview
     return {
       sessionId: `preview-${Date.now()}`,
       cardId: card.id,
@@ -293,6 +295,7 @@ export class StudySessionService {
       cardName: card.name,
       subjectName,
       correctAnswer: cardOutput.answer.correct,
+      solution: cardOutput.solution,
     };
   }
 

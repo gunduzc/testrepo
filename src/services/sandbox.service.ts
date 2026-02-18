@@ -60,6 +60,10 @@ function validateCardOutput(output: unknown): output is CardOutput {
     return false;
   }
 
+  if (typeof obj.solution !== "string") {
+    return false;
+  }
+
   return true;
 }
 
@@ -149,7 +153,7 @@ export class SandboxService {
           error: {
             type: "ShapeError",
             message:
-              "Invalid card output shape. Expected { question: string, answer: { correct: string, type: AnswerType, choices?: string[], validate?: string } }",
+              "Invalid card output shape. Expected { question: string, answer: { correct: string, type: AnswerType, choices?: string[], validate?: string }, solution: string }",
           },
         };
       }

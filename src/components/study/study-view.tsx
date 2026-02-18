@@ -62,6 +62,7 @@ export function StudyView({ curriculumId, previewMode = false }: StudyViewProps)
         setResult({
           correct: isCorrect,
           correctAnswer: question.correctAnswer || "N/A",
+          solution: question.solution || question.correctAnswer || "N/A",
           progress: { completionPercentage: 0 },
           canUndo: false,
         });
@@ -181,12 +182,14 @@ export function StudyView({ curriculumId, previewMode = false }: StudyViewProps)
             </h2>
           </div>
 
-          {!result.correct && (
-            <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-3 sm:p-4 mb-4 sm:mb-6">
-              <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mb-1">Correct answer:</p>
-              <p className="text-base sm:text-lg font-medium text-gray-900 dark:text-gray-100">{result.correctAnswer}</p>
-            </div>
-          )}
+          <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-3 sm:p-4 mb-4 sm:mb-6">
+            <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mb-1">
+              {result.correct ? "Solution:" : "Correct answer:"}
+            </p>
+            <p className="text-base sm:text-lg font-medium text-gray-900 dark:text-gray-100 whitespace-pre-wrap">
+              {result.solution}
+            </p>
+          </div>
 
           <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mb-4 sm:mb-6 text-center">
             <span>Progress: {(result.progress?.completionPercentage ?? 0).toFixed(1)}%</span>
