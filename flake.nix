@@ -2,7 +2,7 @@
   description = "Programmable Spaced Repetition Learning Platform";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.11";
     flake-utils.url = "github:numtide/flake-utils";
   };
 
@@ -10,9 +10,7 @@
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
-        # Use system nixpkgs for prisma-engines to get matching version
-        systemPkgs = import <nixpkgs> { inherit system; };
-        prismaEngines = systemPkgs.prisma-engines;
+        prismaEngines = pkgs.prisma-engines;
       in
       {
         devShells.default = pkgs.mkShell {
