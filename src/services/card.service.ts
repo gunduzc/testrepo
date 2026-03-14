@@ -37,6 +37,7 @@ export class CardService {
           answerType: data.answerType,
           learningSteps: data.learningSteps ?? 5,
           relearningSteps: data.relearningSteps ?? 3,
+          reviewSteps: data.reviewSteps ?? 1,
           tags: JSON.stringify(data.tags ?? []),
           authorId,
         },
@@ -123,6 +124,7 @@ export class CardService {
         ...(data.answerType && { answerType: data.answerType }),
         ...(data.learningSteps !== undefined && { learningSteps: data.learningSteps }),
         ...(data.relearningSteps !== undefined && { relearningSteps: data.relearningSteps }),
+        ...(data.reviewSteps !== undefined && { reviewSteps: data.reviewSteps }),
         ...(data.tags && { tags: JSON.stringify(data.tags) }),
       },
     });
@@ -166,6 +168,7 @@ export class CardService {
     answerType: string;
     learningSteps: number;
     relearningSteps: number;
+    reviewSteps: number;
     tags: string[];
     authorId: string;
     createdAt: Date;

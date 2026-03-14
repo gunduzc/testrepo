@@ -113,6 +113,7 @@ model Card {
   answerType      String    @default("TEXT") // AnswerType enum
   learningSteps   Int       @default(5)
   relearningSteps Int       @default(3)
+  reviewSteps     Int       @default(1)
   tags            String    @default("[]") // JSON array
   authorId        String
   createdAt       DateTime  @default(now())

@@ -18,6 +18,7 @@ const createCardSchema = z.object({
   answerType: z.enum(["INTEGER", "DECIMAL", "TEXT", "FRACTION", "CHOICE"]),
   learningSteps: z.number().int().min(1).max(20).optional(),
   relearningSteps: z.number().int().min(1).max(10).optional(),
+  reviewSteps: z.number().int().min(1).max(10).optional(),
   tags: z.array(z.string()).optional(),
   subjectId: z.string().optional(),
   position: z.number().int().min(0).optional(),

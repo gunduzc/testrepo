@@ -78,6 +78,7 @@ export interface ScheduledCard {
     answerType: AnswerType;
     learningSteps: number;
     relearningSteps: number;
+    reviewSteps: number;
     description: string;
   };
   state: CardState;
@@ -86,6 +87,10 @@ export interface ScheduledCard {
   subjectId: string;
   subjectName: string;
   position: number;
+  /** Current step progress (correct answers so far) */
+  currentStep: number;
+  /** Required steps based on current state */
+  requiredSteps: number;
 }
 
 /**

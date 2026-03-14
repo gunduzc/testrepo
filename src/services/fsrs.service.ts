@@ -100,7 +100,8 @@ export class FSRSService {
 
   /**
    * Updates card state after a review
-   * Returns the updated state and stores undo information
+   * Enforces custom step counts (learningSteps, relearningSteps, reviewSteps)
+   * Only applies FSRS scheduling when steps are completed
    */
   async updateCardState(
     userId: string,
@@ -112,6 +113,7 @@ export class FSRSService {
     stability: number;
     difficulty: number;
     canUndo: boolean;
+    stepsRemaining: number;
   }> {
     // Get user's FSRS parameters (or use global default)
     const user = await prisma.user.findUnique({
@@ -124,6 +126,33 @@ export class FSRSService {
       : DEFAULT_FSRS_PARAMETERS;
 
     const f = createFSRS(params);
+
+    // Get the card's step settings
+    const card = await prisma.card.findUnique({
+      where: { id: cardId },
+      select: { learningSteps: true, relearningSteps: true, reviewSteps: true },
+    });
+
+    if (!card) {
+      throw new Error("Card not found");
+    }
+
+    // Get step overrides for this card if in a class
+    const enrollment = await prisma.classEnrollment.findFirst({
+      where: { userId },
+      include: {
+        class: {
+          include: {
+            stepOverrides: { where: { cardId } },
+          },
+        },
+      },
+    });
+
+    const stepOverride = enrollment?.class?.stepOverrides?.[0];
+    const learningSteps = stepOverride?.learningSteps ?? card.learningSteps;
+    const relearningSteps = stepOverride?.relearningSteps ?? card.relearningSteps;
+    const reviewSteps = card.reviewSteps ?? 1;
 
     // Get or create student card state
     let cardState = await prisma.studentCardState.findUnique({
@@ -139,7 +168,7 @@ export class FSRSService {
         data: {
           userId,
           cardId,
-          state: "NEW",
+          state: "LEARNING", // Start in LEARNING, not NEW
           stability: 0,
           difficulty: 0,
           elapsedDays: 0,
@@ -166,42 +195,101 @@ export class FSRSService {
       lastReview: cardState.lastReview,
     };
 
-    // Build FSRS card from our state
-    const fsrsCard: FSRSCard = {
-      due: cardState.due,
-      stability: cardState.stability,
-      difficulty: cardState.difficulty,
-      elapsed_days: cardState.elapsedDays,
-      scheduled_days: cardState.scheduledDays,
-      learning_steps: cardState.learningSteps ?? 0,
-      reps: cardState.reps,
-      lapses: cardState.lapses,
-      state: toFSRSState(cardState.state as CardState),
-      last_review: cardState.lastReview || undefined,
+    const correct = rating !== Rating.AGAIN;
+    const currentState = cardState.state as CardState;
+
+    // Determine required steps based on current state
+    const getRequiredSteps = (state: CardState): number => {
+      switch (state) {
+        case "NEW":
+        case "LEARNING":
+          return learningSteps;
+        case "RELEARNING":
+          return relearningSteps;
+        case "REVIEW":
+          return reviewSteps;
+      }
     };
 
-    // Get step override for this card if in a class
-    const enrollment = await prisma.classEnrollment.findFirst({
-      where: { userId },
-      include: {
-        class: {
-          include: {
-            stepOverrides: { where: { cardId } },
-          },
-        },
-      },
-    });
+    const requiredSteps = getRequiredSteps(currentState);
+    let newStepIndex = cardState.stepIndex;
+    let newState: CardState = currentState;
+    let applyFSRS = false;
 
-    // Apply FSRS algorithm - map our rating to ts-fsrs Grade
-    const gradeMap: Record<Rating, Grade> = {
-      [Rating.AGAIN]: FSRSRating.Again,
-      [Rating.HARD]: FSRSRating.Hard,
-      [Rating.GOOD]: FSRSRating.Good,
-      [Rating.EASY]: FSRSRating.Easy,
-    };
-    const fsrsGrade = gradeMap[rating];
-    const result = f.next(fsrsCard, now, fsrsGrade);
-    const newFsrsCard = result.card;
+    if (correct) {
+      // Increment step counter
+      newStepIndex = cardState.stepIndex + 1;
+
+      if (newStepIndex >= requiredSteps) {
+        // Steps completed - transition state
+        if (currentState === "LEARNING" || currentState === "NEW") {
+          newState = "REVIEW";
+          newStepIndex = 0; // Reset for reviewSteps
+          applyFSRS = true;
+        } else if (currentState === "RELEARNING") {
+          newState = "REVIEW";
+          newStepIndex = 0;
+          applyFSRS = true;
+        } else if (currentState === "REVIEW") {
+          // All reviewSteps completed - apply FSRS for next review scheduling
+          newStepIndex = 0;
+          applyFSRS = true;
+        }
+      }
+      // If steps not complete, stay in same state but due immediately for next step
+    } else {
+      // Incorrect answer - reset steps
+      newStepIndex = 0;
+
+      if (currentState === "REVIEW") {
+        // Lapse: REVIEW -> RELEARNING
+        newState = "RELEARNING";
+      }
+      // LEARNING/RELEARNING stay in same state, just reset stepIndex
+    }
+
+    // Build FSRS card from our state (only used if applyFSRS)
+    let newDue = now; // Default: due immediately for next step
+    let newStability = cardState.stability;
+    let newDifficulty = cardState.difficulty;
+    let newElapsedDays = cardState.elapsedDays;
+    let newScheduledDays = cardState.scheduledDays;
+    let newReps = cardState.reps;
+
+    if (applyFSRS) {
+      // Apply FSRS algorithm for scheduling
+      const fsrsCard: FSRSCard = {
+        due: cardState.due,
+        stability: cardState.stability,
+        difficulty: cardState.difficulty,
+        elapsed_days: cardState.elapsedDays,
+        scheduled_days: cardState.scheduledDays,
+        learning_steps: 0, // We handle steps ourselves
+        reps: cardState.reps,
+        lapses: cardState.lapses,
+        state: toFSRSState(currentState),
+        last_review: cardState.lastReview || undefined,
+      };
+
+      const gradeMap: Record<Rating, Grade> = {
+        [Rating.AGAIN]: FSRSRating.Again,
+        [Rating.HARD]: FSRSRating.Hard,
+        [Rating.GOOD]: FSRSRating.Good,
+        [Rating.EASY]: FSRSRating.Easy,
+      };
+      const fsrsGrade = gradeMap[rating];
+      const result = f.next(fsrsCard, now, fsrsGrade);
+      const newFsrsCard = result.card;
+
+      newDue = newFsrsCard.due;
+      newStability = newFsrsCard.stability;
+      newDifficulty = newFsrsCard.difficulty;
+      newElapsedDays = newFsrsCard.elapsed_days;
+      newScheduledDays = newFsrsCard.scheduled_days;
+      newReps = newFsrsCard.reps;
+    }
+
+    const isLapse = !correct && currentState === "REVIEW";
 
     // Create review log
     const reviewLog = await prisma.reviewLog.create({
@@ -209,7 +297,7 @@ export class FSRSService {
         userId,
         cardId,
         rating,
-        correct: rating !== Rating.AGAIN,
+        correct,
         responseTimeMs,
         stateBeforeReview: cardState.state,
         stabilityBefore: cardState.stability,
@@ -218,21 +306,18 @@ export class FSRSService {
     });
 
     // Update card state
-    const newState = fromFSRSState(newFsrsCard.state);
-    const isLapse = rating === Rating.AGAIN && cardState.state === "REVIEW";
-
     await prisma.studentCardState.update({
       where: { id: cardState.id },
       data: {
         state: newState,
-        stability: newFsrsCard.stability,
-        difficulty: newFsrsCard.difficulty,
-        elapsedDays: newFsrsCard.elapsed_days,
-        scheduledDays: newFsrsCard.scheduled_days,
-        learningSteps: newFsrsCard.learning_steps,
-        reps: newFsrsCard.reps,
+        stability: newStability,
+        difficulty: newDifficulty,
+        elapsedDays: newElapsedDays,
+        scheduledDays: newScheduledDays,
+        stepIndex: newStepIndex,
+        reps: newReps,
         lapses: isLapse ? cardState.lapses + 1 : cardState.lapses,
-        due: newFsrsCard.due,
+        due: newDue,
         lastReview: now,
       },
     });
@@ -273,11 +358,16 @@ export class FSRSService {
       },
     });
 
+    const stepsRemaining = correct
+      ? Math.max(0, getRequiredSteps(newState) - newStepIndex)
+      : getRequiredSteps(newState);
+
     return {
       newState,
-      stability: newFsrsCard.stability,
-      difficulty: newFsrsCard.difficulty,
+      stability: newStability,
+      difficulty: newDifficulty,
       canUndo: true,
+      stepsRemaining,
     };
   }
 
@@ -426,6 +516,19 @@ export class FSRSService {
       for (const ccs of cs.subject.cardSubjects) {
         const state = stateMap.get(ccs.cardId);
 
+        // Helper to get required steps based on state
+        const getRequiredSteps = (cardState: CardState, card: typeof ccs.card): number => {
+          switch (cardState) {
+            case "NEW":
+            case "LEARNING":
+              return card.learningSteps;
+            case "RELEARNING":
+              return card.relearningSteps;
+            case "REVIEW":
+              return card.reviewSteps ?? 1;
+          }
+        };
+
         if (!state) {
           // Card never studied - it's new
           newCards.push({
@@ -437,6 +540,7 @@ export class FSRSService {
               answerType: ccs.card.answerType as AnswerType,
               learningSteps: ccs.card.learningSteps,
               relearningSteps: ccs.card.relearningSteps,
+              reviewSteps: ccs.card.reviewSteps ?? 1,
               description: ccs.card.description,
             },
             state: "NEW",
@@ -445,9 +549,12 @@ export class FSRSService {
             subjectId: cs.subject.id,
             subjectName: cs.subject.name,
             position: ccs.position,
+            currentStep: 0,
+            requiredSteps: ccs.card.learningSteps,
           });
         } else if (state.due <= now) {
           // Card is due
+          const cardState = state.state as CardState;
           dueCards.push({
             cardId: ccs.cardId,
             card: {
@@ -457,14 +564,17 @@ export class FSRSService {
               answerType: ccs.card.answerType as AnswerType,
               learningSteps: ccs.card.learningSteps,
               relearningSteps: ccs.card.relearningSteps,
+              reviewSteps: ccs.card.reviewSteps ?? 1,
               description: ccs.card.description,
             },
-            state: state.state as CardState,
+            state: cardState,
             due: state.due,
             isNew: false,
             subjectId: cs.subject.id,
             subjectName: cs.subject.name,
             position: ccs.position,
+            currentStep: state.stepIndex,
+            requiredSteps: getRequiredSteps(cardState, ccs.card),
           });
         }
       }

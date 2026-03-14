@@ -45,6 +45,7 @@ export interface CreateCardDTO {
   answerType: AnswerType;
   learningSteps?: number;
   relearningSteps?: number;
+  reviewSteps?: number;
   tags?: string[];
   subjectId?: string;
   position?: number;
@@ -61,6 +62,7 @@ export interface UpdateCardDTO {
   answerType?: AnswerType;
   learningSteps?: number;
   relearningSteps?: number;
+  reviewSteps?: number;
   tags?: string[];
 }
 
