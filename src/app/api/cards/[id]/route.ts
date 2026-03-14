@@ -10,6 +10,7 @@ import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { cardService } from "@/services";
 import { AnswerType } from "@/lib/types";
+import { canCreateContent } from "@/lib/instance-config";
 
 const updateCardSchema = z.object({
   functionSource: z.string().optional(),
@@ -67,9 +68,9 @@ export async function PUT(
       );
     }
 
-    if (!["ADMIN", "EDUCATOR"].includes(session.user.role)) {
+    if (!canCreateContent(session.user.role)) {
       return NextResponse.json(
-        { error: { code: "FORBIDDEN", message: "Only educators can update cards" } },
+        { error: { code: "FORBIDDEN", message: "You don't have permission to update cards" } },
         { status: 403 }
       );
     }
@@ -138,9 +139,9 @@ export async function DELETE(
       );
     }
 
-    if (!["ADMIN", "EDUCATOR"].includes(session.user.role)) {
+    if (!canCreateContent(session.user.role)) {
       return NextResponse.json(
-        { error: { code: "FORBIDDEN", message: "Only educators can delete cards" } },
+        { error: { code: "FORBIDDEN", message: "You don't have permission to delete cards" } },
         { status: 403 }
       );
     }

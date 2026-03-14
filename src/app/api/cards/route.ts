@@ -9,6 +9,7 @@ import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { cardService } from "@/services";
 import { AnswerType } from "@/lib/types";
+import { canCreateContent } from "@/lib/instance-config";
 
 const createCardSchema = z.object({
   functionSource: z.string(),
@@ -38,10 +39,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Only ADMIN and EDUCATOR can create cards
-    if (!["ADMIN", "EDUCATOR"].includes(session.user.role)) {
+    // Check if user can create content based on instance mode
+    if (!canCreateContent(session.user.role)) {
       return NextResponse.json(
-        { error: { code: "FORBIDDEN", message: "Only educators can create cards" } },
+        { error: { code: "FORBIDDEN", message: "You don't have permission to create cards" } },
         { status: 403 }
       );
     }
