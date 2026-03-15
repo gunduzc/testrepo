@@ -10,6 +10,9 @@ This document records bugs discovered through automated testing and their fixes.
 | BUG-02 | INTEGER validation fails for scientific notation | Low | Fixed |
 | BUG-03 | LLM prompt missing solution field | High | Fixed |
 | BUG-04 | Import/export missing reviewSteps field | Medium | Fixed |
+| BUG-05 | Default card template missing solution field | Medium | Fixed |
+| BUG-06 | Card editor missing LLM integration UI | High | Fixed |
+| BUG-07 | Card editor missing reviewSteps field | Medium | Fixed |
 
 ---
 
@@ -237,3 +240,52 @@ reviewSteps: data.data.reviewSteps,
 5. **Update all related code when adding fields** - When adding a new field to a model (like `reviewSteps`), search for all places that serialize/deserialize that model (import, export, API responses) and update them together.
 
 6. **Integration tests catch what unit tests miss** - The `reviewSteps` bug was found by testing the full import-export flow, not just individual functions.
+
+---
+
+## BUG-05: Default card template missing solution field
+
+### Description
+The `DEFAULT_SOURCE` constant in the card editor was missing the required `solution` field. New users starting with the default template would get validation errors when testing.
+
+### Location
+- **File:** `src/components/editor/code-editor.tsx`
+- **Line:** 28-39 (DEFAULT_SOURCE constant)
+
+### Fix
+Added `solution` field to the default template:
+```typescript
+solution: \`\${a} + \${b} = \${sum}\`
+```
+
+---
+
+## BUG-06: Card editor missing LLM integration UI
+
+### Description
+The LLM API endpoints (`/api/llm/generate` and `/api/llm/revise`) existed but there was no UI to use them. Educators couldn't describe a card in natural language and have AI generate it.
+
+### Location
+- **File:** `src/components/editor/code-editor.tsx`
+
+### Fix
+Added AI generation UI:
+- Text input for describing the card
+- "Generate with AI" button
+- Error handling for when OPENAI_API_KEY is not configured
+- Auto-fills description field from the prompt
+
+---
+
+## BUG-07: Card editor missing reviewSteps field
+
+### Description
+The card editor UI didn't include the `reviewSteps` field that was added to the data model. Educators couldn't configure how many correct answers are required per review session.
+
+### Location
+- **File:** `src/components/editor/code-editor.tsx`
+
+### Fix
+- Added `reviewSteps` state variable
+- Added `reviewSteps` to save payload
+- Added UI input for configuring review steps (1-10)

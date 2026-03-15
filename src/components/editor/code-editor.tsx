@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Editor from "@monaco-editor/react";
 import { Card, CardHeader, CardBody, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,7 @@ interface CardCodeEditorProps {
   subjectId?: string;
   initialLearningSteps?: number;
   initialRelearningSteps?: number;
+  initialReviewSteps?: number;
   onSave?: (data: {
     name: string;
     description: string;
@@ -21,6 +22,7 @@ interface CardCodeEditorProps {
     source: string;
     learningSteps: number;
     relearningSteps: number;
+    reviewSteps: number;
   }) => Promise<void>;
   onCardCreated?: (cardId: string) => void;
 }
@@ -28,13 +30,15 @@ interface CardCodeEditorProps {
 const DEFAULT_SOURCE = `function generate() {
   const a = Math.floor(Math.random() * 10) + 1;
   const b = Math.floor(Math.random() * 10) + 1;
+  const sum = a + b;
 
   return {
     question: \`What is \${a} + \${b}?\`,
     answer: {
-      correct: String(a + b),
+      correct: String(sum),
       type: "INTEGER"
-    }
+    },
+    solution: \`\${a} + \${b} = \${sum}\`
   };
 }`;
 
@@ -44,6 +48,7 @@ export function CardCodeEditor({
   subjectId,
   initialLearningSteps = 5,
   initialRelearningSteps = 3,
+  initialReviewSteps = 1,
   onSave,
   onCardCreated,
 }: CardCodeEditorProps) {
@@ -51,14 +56,69 @@ export function CardCodeEditor({
   const [testResults, setTestResults] = useState<SandboxResult[]>([]);
   const [isTesting, setIsTesting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [aiPrompt, setAiPrompt] = useState("");
   const [answerType, setAnswerType] = useState<AnswerType>("INTEGER");
   const [learningSteps, setLearningSteps] = useState(initialLearningSteps);
   const [relearningSteps, setRelearningSteps] = useState(initialRelearningSteps);
+  const [reviewSteps, setReviewSteps] = useState(initialReviewSteps);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [sampleCount, setSampleCount] = useState(10);
+  const [llmAvailable, setLlmAvailable] = useState<boolean | null>(null);
+
+  // Check if LLM is available on mount
+  useEffect(() => {
+    fetch("/api/llm/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ description: "test check" }),
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        // If we get SERVICE_UNAVAILABLE, LLM is not configured
+        setLlmAvailable(data.error?.code !== "SERVICE_UNAVAILABLE");
+      })
+      .catch(() => setLlmAvailable(false));
+  }, []);
+
+  const handleGenerate = async () => {
+    if (!aiPrompt.trim() || aiPrompt.length < 10) {
+      setError("Please describe the card in at least 10 characters");
+      return;
+    }
+
+    setIsGenerating(true);
+    setError(null);
+    setSuccessMessage(null);
+
+    try {
+      const res = await fetch("/api/llm/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ description: aiPrompt }),
+      });
+
+      const data = await res.json();
+
+      if (data.success) {
+        setSource(data.data.source);
+        setSuccessMessage("Card generated! Click Test to preview it.");
+        // Auto-fill description from prompt
+        if (!description) {
+          setDescription(aiPrompt);
+        }
+      } else {
+        setError(data.error.message || "Failed to generate card");
+      }
+    } catch (err) {
+      setError("Failed to generate card");
+    } finally {
+      setIsGenerating(false);
+    }
+  };
 
   const handleTest = async () => {
     setIsTesting(true);
@@ -103,7 +163,7 @@ export function CardCodeEditor({
     try {
       // If custom onSave provided, use it
       if (onSave) {
-        await onSave({ name, description, answerType, source, learningSteps, relearningSteps });
+        await onSave({ name, description, answerType, source, learningSteps, relearningSteps, reviewSteps });
         return;
       }
 
@@ -118,6 +178,7 @@ export function CardCodeEditor({
           answerType,
           learningSteps,
           relearningSteps,
+          reviewSteps,
           subjectId,
         }),
       });
@@ -149,6 +210,26 @@ export function CardCodeEditor({
       <Card>
         <CardHeader>
           <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Card Function</h2>
+          {/* AI Generation Input - only show if LLM is available */}
+          {llmAvailable && (
+            <div className="mt-3 flex gap-2">
+              <input
+                type="text"
+                value={aiPrompt}
+                onChange={(e) => setAiPrompt(e.target.value)}
+                placeholder="Describe the card (e.g., 'two-digit multiplication problems')"
+                className="flex-1 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+              />
+              <Button
+                onClick={handleGenerate}
+                isLoading={isGenerating}
+                variant="secondary"
+                disabled={aiPrompt.length < 10}
+              >
+                Generate with AI
+              </Button>
+            </div>
+          )}
         </CardHeader>
         <CardBody className="p-0">
           <Editor
@@ -263,7 +344,7 @@ export function CardCodeEditor({
             </div>
 
             {/* Learning Steps Configuration */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Learning Steps
@@ -277,7 +358,7 @@ export function CardCodeEditor({
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                 />
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  Correct answers needed when learning
+                  For new cards
                 </p>
               </div>
               <div>
@@ -287,13 +368,29 @@ export function CardCodeEditor({
                 <input
                   type="number"
                   min="1"
-                  max="20"
+                  max="10"
                   value={relearningSteps}
-                  onChange={(e) => setRelearningSteps(Math.min(20, Math.max(1, parseInt(e.target.value) || 3)))}
+                  onChange={(e) => setRelearningSteps(Math.min(10, Math.max(1, parseInt(e.target.value) || 3)))}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                 />
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  Correct answers needed when relearning
+                  After forgetting
+                </p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Review Steps
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  max="10"
+                  value={reviewSteps}
+                  onChange={(e) => setReviewSteps(Math.min(10, Math.max(1, parseInt(e.target.value) || 1)))}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                />
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  Per review session
                 </p>
               </div>
             </div>
