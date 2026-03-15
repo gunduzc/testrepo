@@ -29,21 +29,25 @@ The function must:
        type: "INTEGER" | "DECIMAL" | "TEXT" | "FRACTION" | "CHOICE",
        choices?: string[],  // Required only for CHOICE type, must include correct answer
        validate?: string  // Optional custom validation function source
-     }
+     },
+     solution: string  // Explanation shown after answering (supports Markdown and KaTeX)
    }
 3. Use Math.random() to generate varied questions
 4. Be pure JavaScript (no require, no imports)
+5. ALWAYS include a solution that explains how to solve the problem
 
 Example for "two-digit addition":
 function generate() {
   const a = Math.floor(Math.random() * 90) + 10;
   const b = Math.floor(Math.random() * 90) + 10;
+  const sum = a + b;
   return {
     question: \`What is \${a} + \${b}?\`,
     answer: {
-      correct: String(a + b),
+      correct: String(sum),
       type: "INTEGER"
-    }
+    },
+    solution: \`\${a} + \${b} = \${sum}\`
   };
 }
 

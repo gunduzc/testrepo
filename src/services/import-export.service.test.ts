@@ -60,6 +60,7 @@ describe("ImportExportService", () => {
         answerType: "INTEGER",
         learningSteps: 5,
         relearningSteps: 3,
+        reviewSteps: 1,
         tags: '["math", "basic"]', // Valid JSON
       } as any);
 
@@ -89,6 +90,7 @@ describe("ImportExportService", () => {
         answerType: "INTEGER",
         learningSteps: 5,
         relearningSteps: 3,
+        reviewSteps: 1,
         tags: "not valid json", // Invalid JSON - will cause JSON.parse to throw!
       } as any);
 
@@ -110,6 +112,7 @@ describe("ImportExportService", () => {
         answerType: "INTEGER",
         learningSteps: 5,
         relearningSteps: 3,
+        reviewSteps: 1,
         tags: null, // Null tags - JSON.parse(null) throws!
       } as any);
 

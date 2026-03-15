@@ -8,6 +8,8 @@ This document records bugs discovered through automated testing and their fixes.
 |--------|-------------|----------|--------|
 | BUG-01 | JSON.parse crashes on invalid tags | Medium | Fixed |
 | BUG-02 | INTEGER validation fails for scientific notation | Low | Fixed |
+| BUG-03 | LLM prompt missing solution field | High | Fixed |
+| BUG-04 | Import/export missing reviewSteps field | Medium | Fixed |
 
 ---
 
@@ -123,11 +125,102 @@ function normalizeInteger(input: string): number | null {
 ## Test Results After Fixes
 
 ```
-Test Files  14 passed (14)
-     Tests  263 passed (263)
+Test Files  15 passed (15)
+     Tests  276 passed (276)
 ```
 
 All tests pass after applying the fixes.
+
+---
+
+---
+
+## BUG-03: LLM prompt missing solution field
+
+### Test Case
+TC-33: System prompt should include solution field
+
+### Description
+The LLM system prompt for card generation did not include the required `solution` field in its documentation. When the LLM generated cards, they would be missing the `solution` field, causing them to fail sandbox validation.
+
+### Location
+- **File:** `src/services/llm.service.ts`
+- **Line:** 18-54 (CARD_GENERATION_SYSTEM prompt)
+
+### Root Cause
+The prompt documentation showed the card structure without the `solution` field:
+```typescript
+// Before (buggy)
+{
+  question: string,
+  answer: { correct: string, type: "..." }
+}
+```
+
+### Fix
+Updated the prompt to include the `solution` field and emphasized its requirement:
+
+```typescript
+// After (fixed)
+{
+  question: string,
+  answer: { correct: string, type: "..." },
+  solution: string  // Explanation shown after answering
+}
+```
+
+Also added rule: "ALWAYS include a solution that explains how to solve the problem"
+
+### Verification
+```
+✓ should include solution field in generation prompt
+✓ System prompt validation tests pass
+```
+
+---
+
+## BUG-04: Import/export missing reviewSteps field
+
+### Test Case
+TC-34: Export should include all card fields
+
+### Description
+The `reviewSteps` field (added for custom step-based learning) was missing from:
+1. `CardExportJSON` type definition
+2. `exportCard()`, `exportSubject()`, `exportCurriculum()` functions
+3. `importCard()`, `importSubject()`, `importCurriculum()` functions
+
+When exporting and re-importing cards, the `reviewSteps` setting would be lost.
+
+### Location
+- **Files:**
+  - `src/lib/types/import-export.ts`
+  - `src/services/import-export.service.ts`
+
+### Root Cause
+When `reviewSteps` was added to the Card model, the import-export system was not updated.
+
+### Fix
+1. Added `reviewSteps: number` to `CardExportJSON` interface
+2. Added `reviewSteps` to all export functions
+3. Added `reviewSteps` to all import functions
+
+```typescript
+// Added to CardExportJSON
+reviewSteps: number;
+
+// Added to export functions
+reviewSteps: card.reviewSteps,
+
+// Added to import functions
+reviewSteps: data.data.reviewSteps,
+```
+
+### Verification
+```
+✓ Export includes reviewSteps
+✓ Import preserves reviewSteps
+```
 
 ---
 
@@ -138,3 +231,9 @@ All tests pass after applying the fixes.
 2. **Be aware of JavaScript number parsing quirks** - `parseInt()` and `parseFloat()` behave differently with scientific notation. Choose the appropriate function based on expected input formats.
 
 3. **Write edge case tests** - These bugs were discovered by writing tests for unusual but valid inputs (malformed data, scientific notation). Edge case testing reveals bugs that normal testing misses.
+
+4. **Keep prompts in sync with schemas** - When integrating with LLMs, ensure system prompts accurately document the expected output schema. Schema changes must be reflected in prompts.
+
+5. **Update all related code when adding fields** - When adding a new field to a model (like `reviewSteps`), search for all places that serialize/deserialize that model (import, export, API responses) and update them together.
+
+6. **Integration tests catch what unit tests miss** - The `reviewSteps` bug was found by testing the full import-export flow, not just individual functions.

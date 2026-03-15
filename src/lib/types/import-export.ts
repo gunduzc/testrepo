@@ -17,6 +17,7 @@ export interface CardExportJSON {
     answerType: AnswerType;
     learningSteps: number;
     relearningSteps: number;
+    reviewSteps: number;
     tags: string[];
   };
 }
