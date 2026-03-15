@@ -69,17 +69,12 @@ export function CardCodeEditor({
   const [sampleCount, setSampleCount] = useState(10);
   const [llmAvailable, setLlmAvailable] = useState<boolean | null>(null);
 
-  // Check if LLM is available on mount
+  // Check if LLM is available on mount (no API call consumed)
   useEffect(() => {
-    fetch("/api/llm/generate", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ description: "test check" }),
-    })
+    fetch("/api/config")
       .then((res) => res.json())
       .then((data) => {
-        // If we get SERVICE_UNAVAILABLE, LLM is not configured
-        setLlmAvailable(data.error?.code !== "SERVICE_UNAVAILABLE");
+        setLlmAvailable(data.llmAvailable ?? false);
       })
       .catch(() => setLlmAvailable(false));
   }, []);
