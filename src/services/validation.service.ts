@@ -67,11 +67,16 @@ function normalizeFraction(input: string): string | null {
 
 /**
  * Normalizes an integer string
+ * Uses parseFloat first to handle scientific notation (1e5 = 100000),
+ * then checks if it's actually an integer
  */
 function normalizeInteger(input: string): number | null {
   const trimmed = input.trim();
-  const num = parseInt(trimmed, 10);
-  return isNaN(num) ? null : num;
+  const num = parseFloat(trimmed);
+  if (isNaN(num) || !isFinite(num)) return null;
+  // Check if it's actually an integer (no fractional part)
+  if (!Number.isInteger(num)) return null;
+  return num;
 }
 
 /**

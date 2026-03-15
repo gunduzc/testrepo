@@ -14,6 +14,18 @@ import {
   AnswerType,
 } from "@/lib/types";
 
+/**
+ * Safely parse tags JSON, returning empty array on failure
+ */
+function safeParseJsonTags(tags: string | null): string[] {
+  if (!tags) return [];
+  try {
+    return JSON.parse(tags) as string[];
+  } catch {
+    return [];
+  }
+}
+
 export class ImportExportService {
   /**
    * Exports a single card to JSON
@@ -35,7 +47,7 @@ export class ImportExportService {
         answerType: card.answerType as AnswerType,
         learningSteps: card.learningSteps,
         relearningSteps: card.relearningSteps,
-        tags: JSON.parse(card.tags) as string[],
+        tags: safeParseJsonTags(card.tags),
       },
     };
   }
@@ -69,7 +81,7 @@ export class ImportExportService {
           answerType: cs.card.answerType as AnswerType,
           learningSteps: cs.card.learningSteps,
           relearningSteps: cs.card.relearningSteps,
-          tags: JSON.parse(cs.card.tags) as string[],
+          tags: safeParseJsonTags(cs.card.tags),
         })),
       },
     };
@@ -111,7 +123,7 @@ export class ImportExportService {
         answerType: ccs.card.answerType as AnswerType,
         learningSteps: ccs.card.learningSteps,
         relearningSteps: ccs.card.relearningSteps,
-        tags: JSON.parse(ccs.card.tags) as string[],
+        tags: safeParseJsonTags(ccs.card.tags),
       })),
     }));
 
