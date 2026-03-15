@@ -10,9 +10,16 @@
 import OpenAI from "openai";
 import { FlaggedSample } from "@/lib/types";
 
+// Support OpenAI-compatible providers (Groq, Gemini, Together, etc.)
+// Set OPENAI_BASE_URL for custom endpoints
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY || "",
+  baseURL: process.env.OPENAI_BASE_URL, // undefined = default OpenAI
 });
+
+// Configurable model (default: gpt-4o for OpenAI, or set LLM_MODEL for others)
+const DEFAULT_MODEL = process.env.LLM_MODEL || "gpt-4o";
+const FAST_MODEL = process.env.LLM_FAST_MODEL || process.env.LLM_MODEL || "gpt-4o-mini";
 
 // System prompts for different tasks
 const CARD_GENERATION_SYSTEM = `You are an expert at creating educational flashcard functions for a spaced repetition learning platform.
@@ -100,7 +107,7 @@ export class LLMService {
     }
 
     const response = await openai.chat.completions.create({
-      model: "gpt-4o",
+      model: DEFAULT_MODEL,
       messages: [
         { role: "system", content: CARD_GENERATION_SYSTEM },
         {
@@ -148,7 +155,7 @@ ${s.comment ? `Comment: ${s.comment}` : ""}`
       .join("\n\n");
 
     const response = await openai.chat.completions.create({
-      model: "gpt-4o",
+      model: DEFAULT_MODEL,
       messages: [
         { role: "system", content: CARD_REVISION_SYSTEM },
         {
@@ -200,7 +207,7 @@ Please fix the function to address these issues.`,
 
     try {
       const response = await openai.chat.completions.create({
-        model: "gpt-4o-mini", // Use faster model for theming
+        model: FAST_MODEL, // Use faster model for theming
         messages: [
           { role: "system", content: THEMING_SYSTEM },
           {
