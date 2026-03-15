@@ -14,8 +14,11 @@ async function createInitialAdmin() {
   const adminEmail = process.env.ADMIN_EMAIL;
   const adminPassword = process.env.ADMIN_PASSWORD;
 
+  console.log(`[init] Admin setup - email configured: ${!!adminEmail}, password configured: ${!!adminPassword}`);
+
   if (!adminEmail || !adminPassword) {
-    return; // No admin credentials configured
+    console.log("[init] Skipping admin creation - credentials not configured");
+    return;
   }
 
   // Dynamic imports to avoid issues during build
