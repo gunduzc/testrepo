@@ -57,6 +57,7 @@ export function CardCodeEditor({
   const [isTesting, setIsTesting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isPolishing, setIsPolishing] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [aiPrompt, setAiPrompt] = useState("");
@@ -112,6 +113,38 @@ export function CardCodeEditor({
       setError("Failed to generate card");
     } finally {
       setIsGenerating(false);
+    }
+  };
+
+  const handlePolish = async () => {
+    if (!aiPrompt.trim()) {
+      setError("Please describe what you want to change");
+      return;
+    }
+
+    setIsPolishing(true);
+    setError(null);
+    setSuccessMessage(null);
+
+    try {
+      const res = await fetch("/api/llm/polish", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ source, feedback: aiPrompt }),
+      });
+
+      const data = await res.json();
+
+      if (data.success) {
+        setSource(data.data.source);
+        setSuccessMessage("Card revised! Click Test to preview changes.");
+      } else {
+        setError(data.error.message || "Failed to revise card");
+      }
+    } catch (err) {
+      setError("Failed to revise card");
+    } finally {
+      setIsPolishing(false);
     }
   };
 
@@ -212,16 +245,24 @@ export function CardCodeEditor({
                 type="text"
                 value={aiPrompt}
                 onChange={(e) => setAiPrompt(e.target.value)}
-                placeholder="Describe the card (e.g., 'two-digit multiplication problems')"
+                placeholder="Describe card or feedback (e.g., 'add harder numbers' or 'two-digit multiplication')"
                 className="flex-1 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
               />
               <Button
                 onClick={handleGenerate}
                 isLoading={isGenerating}
                 variant="secondary"
-                disabled={aiPrompt.length < 10}
+                disabled={aiPrompt.length < 10 || isPolishing}
               >
-                Generate with AI
+                Generate
+              </Button>
+              <Button
+                onClick={handlePolish}
+                isLoading={isPolishing}
+                variant="secondary"
+                disabled={!aiPrompt.trim() || isGenerating}
+              >
+                Revise
               </Button>
             </div>
           )}

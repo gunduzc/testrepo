@@ -75,6 +75,13 @@ Common issues:
 
 Respond with ONLY the corrected JavaScript function, no explanation.`;
 
+const CARD_POLISH_SYSTEM = `You are an expert at improving educational flashcard functions.
+
+Given a JavaScript function and feedback from the educator, revise the function to address the feedback.
+
+Keep the same overall structure and intent, but improve based on the feedback.
+Respond with ONLY the revised JavaScript function, no explanation.`;
+
 const THEMING_SYSTEM = `You are a creative writer who transforms educational questions into themed narratives.
 
 Rules:
@@ -169,6 +176,46 @@ Flagged samples with issues:
 ${flaggedInfo}
 
 Please fix the function to address these issues.`,
+        },
+      ],
+      temperature: 0.3,
+      max_tokens: 1500,
+    });
+
+    const content = response.choices[0]?.message?.content;
+    if (!content) {
+      throw new Error("No response from LLM");
+    }
+
+    return content
+      .replace(/^```javascript\n?/i, "")
+      .replace(/^```js\n?/i, "")
+      .replace(/\n?```$/i, "")
+      .trim();
+  }
+
+  /**
+   * Polish/revise a card function based on feedback
+   */
+  async polishCardFunction(source: string, feedback: string): Promise<string> {
+    if (!this.isConfigured) {
+      throw new Error("LLM service not configured. Set OPENAI_API_KEY environment variable.");
+    }
+
+    const response = await openai.chat.completions.create({
+      model: DEFAULT_MODEL,
+      messages: [
+        { role: "system", content: CARD_POLISH_SYSTEM },
+        {
+          role: "user",
+          content: `Current function:
+\`\`\`javascript
+${source}
+\`\`\`
+
+Feedback: ${feedback}
+
+Please revise the function based on this feedback.`,
         },
       ],
       temperature: 0.3,
