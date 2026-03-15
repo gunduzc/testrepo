@@ -20,7 +20,7 @@
  */
 
 export type InstanceMode = 'community' | 'publisher' | 'school';
-export type RegistrationMode = 'open' | 'domain' | 'sso' | 'invite' | 'code';
+export type RegistrationMode = 'open' | 'closed' | 'domain' | 'sso' | 'invite' | 'code';
 export type PrereqEnforcement = 'hard' | 'soft' | 'none';
 
 // Get instance mode from environment
@@ -35,10 +35,12 @@ export function getInstanceMode(): InstanceMode {
 // Get registration mode from environment
 export function getRegistrationMode(): RegistrationMode {
   const mode = process.env.REGISTRATION?.toLowerCase();
-  if (mode === 'open' || mode === 'domain' || mode === 'sso' || mode === 'invite' || mode === 'code') {
+  if (mode === 'open' || mode === 'closed' || mode === 'domain' || mode === 'sso' || mode === 'invite' || mode === 'code') {
     return mode;
   }
-  return 'open'; // Default
+  // Default based on instance mode
+  const instanceMode = process.env.INSTANCE_MODE?.toLowerCase();
+  return instanceMode === 'school' ? 'closed' : 'open';
 }
 
 // Get allowed email domains (for domain registration mode)
