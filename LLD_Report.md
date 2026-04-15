@@ -1,8 +1,34 @@
+# TOBB University of Economics and Technology
+
+## Department of Computer Engineering
+
+### Senior Design Project
+
+### BIL496
+
+---
+
 # Programmable Spaced Repetition Learning Platform
 
 ## Low-Level Design Report
 
-Senior Design Project · February 2026
+---
+
+### Group KORN
+
+Ahmet Babagil — 211101067
+
+Cemil Gündüz — 211101015
+
+Emre Ekşi — 211104087
+
+Seda Naz Dolu — 201104084
+
+---
+
+**March 2026**
+
+*This report is submitted to the Department of Computer Engineering of TOBB University of Economics and Technology in partial fulfillment of the requirements of the Senior Design Project course BIL496.*
 
 ---
 

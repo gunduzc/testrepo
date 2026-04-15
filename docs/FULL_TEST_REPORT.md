@@ -1,4 +1,34 @@
-# Test Plan Report
+# TOBB University of Economics and Technology
+
+## Department of Computer Engineering
+
+### Senior Design Project
+
+### BIL496
+
+---
+
+# Programmable Spaced Repetition Learning Platform
+
+## Test Plan Report
+
+---
+
+### Group KORN
+
+Ahmet Babagil — 211101067
+
+Cemil Gündüz — 211101015
+
+Emre Ekşi — 211104087
+
+Seda Naz Dolu — 201104084
+
+---
+
+**March 2026**
+
+*This report is submitted to the Department of Computer Engineering of TOBB University of Economics and Technology in partial fulfillment of the requirements of the Senior Design Project course BIL496.*
 
 ---
 
@@ -308,6 +338,62 @@ Each test case is identified with a unique Test ID.
 | import-export.service.ts | 90.82% | 82.6% |
 | study.service.ts | 86.24% | 88.88% |
 | sandbox.service.ts | 78.17% | 77.77% |
+
+---
+
+## Requirement Traceability Matrix
+
+This matrix maps functional requirements to their corresponding test cases, ensuring complete test coverage of all system requirements.
+
+| Req ID | Requirement Description | Related Test Cases |
+|--------|------------------------|-------------------|
+| FR-01 | Create cards with JavaScript function source | TC-01, TC-05, TC-06 |
+| FR-02 | Validate authentication for card operations | TC-02 |
+| FR-03 | Validate required fields for card creation | TC-03, TC-04 |
+| FR-04 | Support card metadata (tags, learning steps) | TC-06, TC-07 |
+| FR-05 | Update existing cards | TC-08 |
+| FR-06 | Execute JavaScript in isolated sandbox | TC-09, TC-14 |
+| FR-07 | Handle syntax errors in user code | TC-10 |
+| FR-08 | Enforce execution timeout (1 second) | TC-11 |
+| FR-09 | Enforce memory limits | TC-12 |
+| FR-10 | Block dangerous global objects | TC-13 |
+| FR-11 | Handle batch execution with errors | TC-15 |
+| FR-12 | Start and manage study sessions | TC-16, TC-20 |
+| FR-13 | Retrieve next question from queue | TC-17, TC-21 |
+| FR-14 | Submit and validate answers | TC-18, TC-19 |
+| FR-15 | Track learning step progression | TC-22, TC-23 |
+| FR-16 | Handle card lapses (incorrect reviews) | TC-24 |
+| FR-17 | Apply FSRS-5 scheduling algorithm | TC-25 |
+| FR-18 | Validate INTEGER answers | TC-26, TC-27, TC-28, TC-29, TC-30 |
+| FR-19 | Validate DECIMAL answers with tolerance | TC-31, TC-32 |
+| FR-20 | Validate FRACTION answers with simplification | TC-33, TC-34 |
+| FR-21 | Validate TEXT answers (case-insensitive) | TC-35, TC-36 |
+| FR-22 | Validate CHOICE answers (single/multiple) | TC-37, TC-38 |
+| FR-23 | Handle edge cases (empty/null input) | TC-39, TC-40 |
+| FR-24 | Create curricula with subjects | TC-41 |
+| FR-25 | Define prerequisite relationships | TC-42 |
+| FR-26 | Detect circular dependencies | TC-43 |
+| FR-27 | Calculate completion status | TC-44 |
+| FR-28 | Export curriculum to JSON | TC-45, TC-47, TC-48 |
+| FR-29 | Import curriculum from JSON | TC-46, TC-48 |
+| FR-30 | Configure instance modes | TC-49, TC-50 |
+| FR-31 | Community mode permissions | TC-51 |
+| FR-32 | Publisher mode permissions | TC-52 |
+| FR-33 | School mode permissions | TC-53 |
+| FR-34 | Configure registration modes | TC-54, TC-55 |
+
+### Traceability Summary
+
+| Category | Requirements | Test Cases | Coverage |
+|----------|--------------|------------|----------|
+| Card Management | FR-01 to FR-05 | TC-01 to TC-08 | 100% |
+| Sandbox Execution | FR-06 to FR-11 | TC-09 to TC-15 | 100% |
+| Study Sessions | FR-12 to FR-17 | TC-16 to TC-25 | 100% |
+| Answer Validation | FR-18 to FR-23 | TC-26 to TC-40 | 100% |
+| Curriculum Management | FR-24 to FR-29 | TC-41 to TC-48 | 100% |
+| Instance Configuration | FR-30 to FR-34 | TC-49 to TC-55 | 100% |
+
+All 34 functional requirements are covered by at least one test case, achieving 100% requirement traceability.
 
 ---
 
