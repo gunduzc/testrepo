@@ -162,15 +162,10 @@ PRISMA_ENGINES_CHECKSUM_IGNORE_MISSING=1 nix shell nixpkgs#prisma -c prisma gene
 
 The build may show Prisma engine warnings during static page generation - this is normal on NixOS and doesn't affect the runtime application.
 
-### isolated-vm Build Errors
-The `isolated-vm` package requires native compilation. On some systems:
-```bash
-# Ubuntu/Debian
-sudo apt-get install build-essential
-
-# macOS
-xcode-select --install
-```
+### QuickJS WASM Sandbox
+The sandbox uses `quickjs-emscripten`, which is a pure WASM package — no native compilation needed.
+This replaced `isolated-vm` which required C++ toolchain and had known security vulnerabilities
+(CVE-2022-39266, CVE-2021-21413) as well as compatibility issues with newer Node.js versions.
 
 ### KaTeX CSS Not Loading
 Ensure the layout imports KaTeX CSS:

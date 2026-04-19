@@ -220,18 +220,19 @@ Result: Grandfathered - student keeps Algebra mastery, Pre-Algebra not required
 | Password reset + session revocation | Missing | Missing | Critical for production |
 | Email verification | Schema exists | Missing | Anti-spam |
 | Per-card learning/relearning steps UI | Done | Missing | Core FSRS config |
-| FSRS actual optimization | Stubbed | N/A | Currently returns defaults |
+| FSRS actual optimization | Done | N/A | `@open-spaced-repetition/binding` |
 | Global subject DAG refactor | Partial | Missing | Subjects reusable across curricula |
 
 ### Priority 2: Important
 | Feature | Backend | Frontend | Notes |
 |---------|---------|----------|-------|
+| Self-service account management (community mode) | Missing | Missing | Users delete own account, change email/password, disable 2FA |
 | LLM card canvas | Service exists | Missing | Chat + editable artifacts UI |
 | Student progress dashboard | Partial | Missing | Motivating for learners |
 | Class analytics for educators | Missing | Missing | Track student progress (school mode) |
 | Generic OIDC SSO | NextAuth ready | Config only | Single implementation, all providers |
 | 2FA/WebAuthn (optional) | Partial API | Missing | Admin security |
-| GDPR data export | Missing | Missing | Compliance |
+| Admin settings UI | Backend done | Missing | Legal notice editor in admin panel |
 | Error pages (404/500) | Missing | Missing | Polish |
 
 ### Priority 3: Later

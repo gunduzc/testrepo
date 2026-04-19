@@ -75,7 +75,7 @@ describe("Cards API - POST /api/cards", () => {
 
   // TC-02: Reject unauthenticated requests
   it("TC-02: should reject unauthenticated requests", async () => {
-    vi.mocked(auth).mockResolvedValue(null);
+    vi.mocked(auth).mockResolvedValue(null as any);
 
     const request = new NextRequest("http://localhost/api/cards", {
       method: "POST",

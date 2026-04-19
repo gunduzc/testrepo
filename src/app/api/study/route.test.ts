@@ -46,10 +46,11 @@ describe("Study API - GET /api/study/[curriculumId]", () => {
       cardId: "card-1",
       question: "What is 5 + 7?",
       answerType: "INTEGER",
-      choices: null,
+      choices: undefined,
+      cardName: "Addition",
       currentStep: 0,
       requiredSteps: 5,
-    });
+    } as any);
 
     const request = new NextRequest("http://localhost/api/study/curriculum-1");
     const response = await GET(request, { params: Promise.resolve({ curriculumId: "curriculum-1" }) });
@@ -89,10 +90,11 @@ describe("Study API - GET /api/study/[curriculumId]", () => {
       cardId: "card-1",
       question: "What is 3 × 4?",
       answerType: "INTEGER",
-      choices: null,
+      choices: undefined,
+      cardName: "Multiplication",
       currentStep: 2,
       requiredSteps: 5,
-    });
+    } as any);
 
     const request = new NextRequest("http://localhost/api/study/curriculum-1");
     const response = await GET(request, { params: Promise.resolve({ curriculumId: "curriculum-1" }) });
@@ -112,7 +114,8 @@ describe("Study API - GET /api/study/[curriculumId]", () => {
       cardId: "card-1",
       question: "Preview question",
       answerType: "TEXT",
-      choices: null,
+      choices: undefined,
+      cardName: "Preview Card",
     });
 
     const request = new NextRequest("http://localhost/api/study/curriculum-1?preview=true");
@@ -151,9 +154,9 @@ describe("Study API - POST /api/study/submit", () => {
       correct: true,
       correctAnswer: "12",
       solution: "5 + 7 = 12",
-      newState: "LEARNING",
+      nextState: "LEARNING",
       stepsRemaining: 4,
-    });
+    } as any);
 
     const request = new NextRequest("http://localhost/api/study/submit", {
       method: "POST",
@@ -181,9 +184,9 @@ describe("Study API - POST /api/study/submit", () => {
       correct: false,
       correctAnswer: "12",
       solution: "5 + 7 = 12",
-      newState: "LEARNING",
+      nextState: "LEARNING",
       stepsRemaining: 5, // Reset to full steps
-    });
+    } as any);
 
     const request = new NextRequest("http://localhost/api/study/submit", {
       method: "POST",
@@ -210,9 +213,9 @@ describe("Study API - POST /api/study/submit", () => {
       correct: true,
       correctAnswer: "42",
       solution: "The answer is 42",
-      newState: "REVIEW", // Graduated!
+      nextState: "REVIEW", // Graduated!
       stepsRemaining: 1, // Review steps
-    });
+    } as any);
 
     const request = new NextRequest("http://localhost/api/study/submit", {
       method: "POST",
@@ -226,7 +229,7 @@ describe("Study API - POST /api/study/submit", () => {
     const data = await response.json();
 
     expect(response.status).toBe(200);
-    expect(data.data.newState).toBe("REVIEW");
+    expect(data.data.nextState).toBe("REVIEW");
   });
 
   // TC-24: Handle expired/invalid session

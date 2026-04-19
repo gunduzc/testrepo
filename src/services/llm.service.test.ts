@@ -119,6 +119,7 @@ describe("LLMService", () => {
       await expect(
         service.reviseCardFunction("function generate() {}", [
           {
+            sampleIndex: 0,
             generatedQuestion: "What is 2+2?",
             generatedAnswer: "5",
             correctedAnswer: "4",

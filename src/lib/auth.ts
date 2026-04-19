@@ -2,13 +2,23 @@
  * NextAuth configuration
  */
 
-import NextAuth from "next-auth";
+import NextAuth, { CredentialsSignin } from "next-auth";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
+import * as OTPAuth from "otpauth";
+import CryptoJS from "crypto-js";
 import prisma from "./prisma";
 import { Role } from "./types";
 import type { Adapter } from "next-auth/adapters";
+
+class TwoFactorRequiredError extends CredentialsSignin {
+  code = "two_factor_required";
+}
+
+class InvalidTwoFactorError extends CredentialsSignin {
+  code = "invalid_two_factor_code";
+}
 
 declare module "next-auth" {
   interface Session {
@@ -51,6 +61,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       credentials: {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
+        twoFactorCode: { label: "2FA Code", type: "text" },
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
@@ -59,6 +70,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
         const email = credentials.email as string;
         const password = credentials.password as string;
+        const twoFactorCode = (credentials.twoFactorCode as string) || "";
 
         const user = await prisma.user.findUnique({
           where: { email },
@@ -74,11 +86,34 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           return null;
         }
 
-        // Check 2FA if enabled
+        // Enforce 2FA if enabled
         if (user.twoFactorEnabled) {
-          // In a full implementation, we'd throw a specific error here
-          // that triggers the 2FA flow on the client
-          // For now, we'll handle 2FA in a separate endpoint
+          if (!twoFactorCode) {
+            throw new TwoFactorRequiredError();
+          }
+
+          if (!user.twoFactorSecret) {
+            throw new TwoFactorRequiredError();
+          }
+
+          const encryptionKey = process.env.TWO_FACTOR_SECRET_KEY || "dev-only-secret-key";
+          const bytes = CryptoJS.AES.decrypt(user.twoFactorSecret, encryptionKey);
+          const secret = bytes.toString(CryptoJS.enc.Utf8);
+
+          const totp = new OTPAuth.TOTP({
+            issuer: "SpacedRepetition",
+            label: user.email,
+            algorithm: "SHA1",
+            digits: 6,
+            period: 30,
+            secret: OTPAuth.Secret.fromBase32(secret),
+          });
+
+          const isValidCode = totp.validate({ token: twoFactorCode, window: 1 }) !== null;
+
+          if (!isValidCode) {
+            throw new InvalidTwoFactorError();
+          }
         }
 
         return {

@@ -227,6 +227,7 @@ describe("ImportExportService", () => {
             answerType: "INTEGER",
             learningSteps: 5,
             relearningSteps: 3,
+            reviewSteps: 1,
             tags: [],
           },
         },
@@ -242,7 +243,7 @@ describe("ImportExportService", () => {
     it("should reject invalid version", async () => {
       const result = await importExportService.importCard(
         {
-          version: "2.0",
+          version: "2.0" as any,
           type: "card",
           data: {} as any,
         },
@@ -275,6 +276,7 @@ describe("ImportExportService", () => {
             answerType: "INTEGER",
             learningSteps: 5,
             relearningSteps: 3,
+            reviewSteps: 1,
             tags: [],
           },
         },
@@ -299,6 +301,7 @@ describe("ImportExportService", () => {
             answerType: "" as any,
             learningSteps: 5,
             relearningSteps: 3,
+            reviewSteps: 1,
             tags: [],
           },
         },
@@ -329,6 +332,7 @@ describe("ImportExportService", () => {
             answerType: "INTEGER",
             learningSteps: 5,
             relearningSteps: 3,
+            reviewSteps: 1,
             tags: [],
           },
         },
@@ -375,6 +379,7 @@ describe("ImportExportService", () => {
                     answerType: "INTEGER",
                     learningSteps: 5,
                     relearningSteps: 3,
+                    reviewSteps: 1,
                     tags: [],
                   },
                 ],
@@ -478,6 +483,7 @@ describe("ImportExportService", () => {
                     answerType: "INTEGER",
                     learningSteps: 5,
                     relearningSteps: 3,
+                    reviewSteps: 1,
                     tags: [],
                   },
                   {
@@ -487,6 +493,7 @@ describe("ImportExportService", () => {
                     answerType: "INTEGER",
                     learningSteps: 5,
                     relearningSteps: 3,
+                    reviewSteps: 1,
                     tags: [],
                   },
                 ],
@@ -530,6 +537,7 @@ describe("ImportExportService", () => {
                 answerType: "INTEGER",
                 learningSteps: 5,
                 relearningSteps: 3,
+                reviewSteps: 1,
                 tags: [],
               },
             ],
@@ -547,7 +555,7 @@ describe("ImportExportService", () => {
       const result = await importExportService.importSubject(
         {
           version: "1.0",
-          type: "card", // Wrong type!
+          type: "card" as any, // Wrong type!
           data: {} as any,
         },
         "curr-1",

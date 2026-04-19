@@ -139,46 +139,79 @@ export async function GET(
       )
     );
 
+    // Batch queries instead of per-student loops (avoids N+1 problem)
+    const allStudentIds = classData.enrollments.map((e) => e.user.id);
+
+    // Build card-to-curriculum lookup
+    const cardToCurriculum = new Map<string, string[]>();
+    for (const ca of classData.curriculumAssignments) {
+      for (const cs of ca.curriculum.curriculumSubjects) {
+        for (const ccs of cs.subject.cardSubjects) {
+          const existing = cardToCurriculum.get(ccs.cardId) || [];
+          existing.push(ca.curriculum.id);
+          cardToCurriculum.set(ccs.cardId, existing);
+        }
+      }
+    }
+
+    const [allCardStates, reviewCountsByUser, correctCountsByUser, reviewCountsByUserCard, correctCountsByUserCard, lastActivityByUser] = await Promise.all([
+      // All card states for all students
+      prisma.studentCardState.findMany({
+        where: { userId: { in: allStudentIds }, cardId: { in: allCardIds } },
+      }),
+      // Total reviews per student
+      prisma.reviewLog.groupBy({
+        by: ["userId"],
+        where: { userId: { in: allStudentIds }, cardId: { in: allCardIds } },
+        _count: { id: true },
+      }),
+      // Correct reviews per student
+      prisma.reviewLog.groupBy({
+        by: ["userId"],
+        where: { userId: { in: allStudentIds }, cardId: { in: allCardIds }, correct: true },
+        _count: { id: true },
+      }),
+      // Total reviews per student+card (for per-curriculum breakdown)
+      prisma.reviewLog.groupBy({
+        by: ["userId", "cardId"],
+        where: { userId: { in: allStudentIds }, cardId: { in: allCardIds } },
+        _count: { id: true },
+      }),
+      // Correct reviews per student+card
+      prisma.reviewLog.groupBy({
+        by: ["userId", "cardId"],
+        where: { userId: { in: allStudentIds }, cardId: { in: allCardIds }, correct: true },
+        _count: { id: true },
+      }),
+      // Last activity per student
+      prisma.reviewLog.groupBy({
+        by: ["userId"],
+        where: { userId: { in: allStudentIds }, cardId: { in: allCardIds } },
+        _max: { createdAt: true },
+      }),
+    ]);
+
+    // Build lookup maps
+    const cardStatesByUser = new Map<string, Map<string, (typeof allCardStates)[0]>>();
+    for (const state of allCardStates) {
+      if (!cardStatesByUser.has(state.userId)) cardStatesByUser.set(state.userId, new Map());
+      cardStatesByUser.get(state.userId)!.set(state.cardId, state);
+    }
+
+    const totalReviewsByUser = new Map(reviewCountsByUser.map((r) => [r.userId, r._count.id]));
+    const correctByUser = new Map(correctCountsByUser.map((r) => [r.userId, r._count.id]));
+    const lastActivityMap = new Map(lastActivityByUser.map((r) => [r.userId, r._max.createdAt]));
+
+    const reviewsByUserCard = new Map<string, number>();
+    for (const r of reviewCountsByUserCard) reviewsByUserCard.set(`${r.userId}:${r.cardId}`, r._count.id);
+    const correctByUserCard = new Map<string, number>();
+    for (const r of correctCountsByUserCard) correctByUserCard.set(`${r.userId}:${r.cardId}`, r._count.id);
+
+    // Build student progress from maps (no DB calls in this loop)
     for (const enrollment of classData.enrollments) {
       const userId = enrollment.user.id;
+      const userCardStates = cardStatesByUser.get(userId) || new Map();
 
-      // Get student's card states
-      const cardStates = await prisma.studentCardState.findMany({
-        where: {
-          userId,
-          cardId: { in: allCardIds },
-        },
-      });
-
-      const cardStateMap = new Map(cardStates.map((s) => [s.cardId, s]));
-
-      // Get review stats
-      const reviewStats = await prisma.reviewLog.aggregate({
-        where: {
-          userId,
-          cardId: { in: allCardIds },
-        },
-        _count: { id: true },
-      });
-
-      const correctReviews = await prisma.reviewLog.count({
-        where: {
-          userId,
-          cardId: { in: allCardIds },
-          correct: true,
-        },
-      });
-
-      const lastReview = await prisma.reviewLog.findFirst({
-        where: {
-          userId,
-          cardId: { in: allCardIds },
-        },
-        orderBy: { createdAt: "desc" },
-        select: { createdAt: true },
-      });
-
-      // Calculate per-curriculum progress
       const curricula: StudentProgress["curricula"] = [];
 
       for (const ca of classData.curriculumAssignments) {
@@ -189,41 +222,20 @@ export async function GET(
         const totalCards = curriculumCardCounts.get(ca.curriculum.id) || 0;
         let cardsStudied = 0;
         let cardsMastered = 0;
+        let curriculumReviews = 0;
+        let curriculumCorrect = 0;
 
         for (const cardId of curriculumCardIds) {
-          const state = cardStateMap.get(cardId);
+          const state = userCardStates.get(cardId);
           if (state) {
             cardsStudied++;
             if (state.state === "REVIEW" && state.stability > 10) {
               cardsMastered++;
             }
           }
+          curriculumReviews += reviewsByUserCard.get(`${userId}:${cardId}`) || 0;
+          curriculumCorrect += correctByUserCard.get(`${userId}:${cardId}`) || 0;
         }
-
-        // Get curriculum-specific review stats
-        const curriculumReviews = await prisma.reviewLog.count({
-          where: {
-            userId,
-            cardId: { in: curriculumCardIds },
-          },
-        });
-
-        const curriculumCorrect = await prisma.reviewLog.count({
-          where: {
-            userId,
-            cardId: { in: curriculumCardIds },
-            correct: true,
-          },
-        });
-
-        const curriculumLastReview = await prisma.reviewLog.findFirst({
-          where: {
-            userId,
-            cardId: { in: curriculumCardIds },
-          },
-          orderBy: { createdAt: "desc" },
-          select: { createdAt: true },
-        });
 
         curricula.push({
           curriculumId: ca.curriculum.id,
@@ -234,12 +246,13 @@ export async function GET(
           totalReviews: curriculumReviews,
           correctReviews: curriculumCorrect,
           accuracy: curriculumReviews > 0 ? curriculumCorrect / curriculumReviews : 0,
-          lastActivity: curriculumLastReview?.createdAt || null,
+          lastActivity: null, // Aggregated at overall level
           completionPercentage: totalCards > 0 ? (cardsMastered / totalCards) * 100 : 0,
         });
       }
 
-      const totalReviews = reviewStats._count.id || 0;
+      const totalReviews = totalReviewsByUser.get(userId) || 0;
+      const correctReviews = correctByUser.get(userId) || 0;
 
       students.push({
         userId: enrollment.user.id,
@@ -249,7 +262,7 @@ export async function GET(
         overallStats: {
           totalReviews,
           accuracy: totalReviews > 0 ? correctReviews / totalReviews : 0,
-          lastActivity: lastReview?.createdAt || null,
+          lastActivity: lastActivityMap.get(userId) || null,
         },
       });
     }

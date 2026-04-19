@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Card, CardHeader, CardBody, CardFooter } from "@/components/ui/card";
@@ -16,6 +16,19 @@ export default function RegisterPage() {
   const [role, setRole] = useState<"STUDENT" | "EDUCATOR">("STUDENT");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [legalNotice, setLegalNotice] = useState<string | null>(null);
+  const [acceptedNotice, setAcceptedNotice] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/legal-notice")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && data.data.legalNotice) {
+          setLegalNotice(data.data.legalNotice);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -131,9 +144,38 @@ export default function RegisterPage() {
                 </label>
               </div>
             </div>
+            {legalNotice && (
+              <div>
+                <details className="border border-gray-300 dark:border-gray-600 rounded-lg">
+                  <summary className="px-3 py-2 cursor-pointer text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Data Processing Notice
+                  </summary>
+                  <div className="px-3 py-2 text-sm text-gray-600 dark:text-gray-400 border-t border-gray-200 dark:border-gray-700 max-h-48 overflow-y-auto whitespace-pre-wrap">
+                    {legalNotice}
+                  </div>
+                </details>
+                <label className="flex items-start gap-2 mt-2">
+                  <input
+                    type="checkbox"
+                    checked={acceptedNotice}
+                    onChange={(e) => setAcceptedNotice(e.target.checked)}
+                    required
+                    className="mt-0.5"
+                  />
+                  <span className="text-sm text-gray-700 dark:text-gray-300">
+                    I have read and acknowledge the data processing notice.
+                  </span>
+                </label>
+              </div>
+            )}
           </CardBody>
           <CardFooter className="flex flex-col gap-4">
-            <Button type="submit" isLoading={isLoading} className="w-full">
+            <Button
+              type="submit"
+              isLoading={isLoading}
+              className="w-full"
+              disabled={legalNotice !== null && !acceptedNotice}
+            >
               Create Account
             </Button>
             <p className="text-center text-sm text-gray-600 dark:text-gray-400">

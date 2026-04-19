@@ -379,3 +379,13 @@ model CardStepOverride {
 
   @@id([classId, cardId])
 }
+
+// ============================================================================
+// INSTANCE SETTINGS
+// ============================================================================
+
+model InstanceSettings {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}

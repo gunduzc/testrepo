@@ -31,7 +31,7 @@ A type-safe, layered architecture learning platform using the FSRS (Free Spaced 
 - **ORM**: Prisma
 - **Auth**: NextAuth.js v5
 - **Scheduling**: ts-fsrs
-- **Sandbox**: isolated-vm
+- **Sandbox**: QuickJS (WASM)
 - **LLM**: OpenAI API (optional)
 - **Styling**: Tailwind CSS
 

@@ -19,7 +19,7 @@ The Programmable Spaced Repetition Learning Platform is built with a two-layer a
 │   │   ├── prisma.ts          # Prisma client singleton
 │   │   └── auth.ts            # NextAuth configuration
 │   ├── services/
-│   │   ├── sandbox.service.ts     # V8 isolate execution
+│   │   ├── sandbox.service.ts     # QuickJS WASM sandbox execution
 │   │   ├── fsrs.service.ts        # FSRS scheduling
 │   │   ├── optimization.service.ts # Parameter optimization
 │   │   ├── validation.service.ts  # Answer validation
@@ -64,12 +64,20 @@ The Programmable Spaced Repetition Learning Platform is built with a two-layer a
 - **OpenAI API** - LLM integration for card generation/theming
 
 ### Sandbox Execution
-- **isolated-vm** - V8 isolate sandboxing for card function execution
+- **quickjs-emscripten** - QuickJS WASM sandboxing for card function execution
+
+> **Note:** The sandbox was originally built on `isolated-vm` (V8 isolates) but was migrated to
+> QuickJS WASM. `isolated-vm` is in maintenance mode with no active development, and has known
+> security vulnerabilities: CVE-2022-39266 (sandbox escape via cached data, CVSS 9.8) and
+> CVE-2021-21413 (prototype chain traversal leading to sandbox escape). It also shares the host
+> V8 process, meaning crashes or exploits in the isolate can affect the entire Node.js process.
+> QuickJS WASM runs a completely separate JavaScript engine in a WebAssembly sandbox, providing
+> a harder isolation boundary with no native compilation required.
 
 ## Core Services
 
 ### SandboxService
-Executes card JavaScript in isolated V8 instances with strict resource limits:
+Executes card JavaScript in QuickJS WASM contexts with strict resource limits:
 - 8 MB heap limit
 - 1 second timeout
 - No host APIs (require, fs, network disabled)
@@ -120,7 +128,7 @@ Manages curricula with DAG validation:
 
 ## Security Considerations
 
-1. **Sandbox Isolation**: Card code runs in isolated V8 with no host access
+1. **Sandbox Isolation**: Card code runs in QuickJS WASM with no host access
 2. **Answer Security**: Correct answers never leave server
 3. **Input Validation**: Zod schemas on all API endpoints
 4. **Role-Based Access**: Admin/Educator/Student permissions

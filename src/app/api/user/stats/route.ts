@@ -96,6 +96,7 @@ export async function GET(request: NextRequest) {
       where: { userId, createdAt: { gte: thirtyDaysAgo } },
       select: { createdAt: true, correct: true, responseTimeMs: true },
       orderBy: { createdAt: "asc" },
+      take: 10_000, // Safety cap to prevent OOM on heavy users
     });
 
     // Group by day

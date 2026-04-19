@@ -63,10 +63,28 @@ export async function POST(request: NextRequest) {
 
     const { curriculum: curriculumData } = importData;
 
+    // Cap total cards to prevent unbounded validation time
+    const MAX_IMPORT_CARDS = 200;
+    const VALIDATION_TIMEOUT_MS = 30_000;
+    const totalCardCount = curriculumData.subjects.reduce((sum: number, s: ImportSubject) => sum + s.cards.length, 0);
+    if (totalCardCount > MAX_IMPORT_CARDS) {
+      return NextResponse.json(
+        { error: { code: "LIMIT_EXCEEDED", message: `Import exceeds maximum of ${MAX_IMPORT_CARDS} cards (got ${totalCardCount})` } },
+        { status: 400 }
+      );
+    }
+
     // Validate all card functions before importing
     const validationErrors: string[] = [];
+    const validationStart = Date.now();
     for (const subject of curriculumData.subjects) {
       for (const card of subject.cards) {
+        if (Date.now() - validationStart > VALIDATION_TIMEOUT_MS) {
+          return NextResponse.json(
+            { error: { code: "TIMEOUT", message: `Validation timed out after ${VALIDATION_TIMEOUT_MS / 1000}s. Try importing fewer cards.` } },
+            { status: 408 }
+          );
+        }
         const result = await sandboxService.executeCard(card.functionSource);
         if (!result.success) {
           validationErrors.push(`Card "${card.name}" in subject "${subject.name}": ${result.error.message}`);

@@ -140,6 +140,7 @@ export async function GET(request: NextRequest) {
       prisma.reviewLog.findMany({
         where: { userId },
         orderBy: { createdAt: "desc" },
+        take: 50_000, // Safety cap to prevent OOM
       }),
       prisma.curriculum.findMany({
         where: { authorId: userId },

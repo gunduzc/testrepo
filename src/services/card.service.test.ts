@@ -345,10 +345,10 @@ describe("CardService", () => {
       } as any);
 
       let updatedData: any;
-      vi.mocked(prisma.card.update).mockImplementation((args: any) => {
+      vi.mocked(prisma.card.update).mockImplementation(((args: any) => {
         updatedData = args.data;
         return Promise.resolve({ id: "card-1", name: "Test" } as any);
-      });
+      }) as any);
 
       await cardService.update("card-1", { reviewSteps: 5 }, "user-1");
 

@@ -15,6 +15,8 @@ import { FlaggedSample } from "@/lib/types";
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY || "",
   baseURL: process.env.OPENAI_BASE_URL, // undefined = default OpenAI
+  timeout: 30_000,   // 30s per request (default is 10 minutes)
+  maxRetries: 1,     // 1 retry = 60s worst case, not 30 min
 });
 
 // Configurable model (default: gpt-4o for OpenAI, or set LLM_MODEL for others)
