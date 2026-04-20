@@ -338,6 +338,14 @@ export function CardCodeEditor({
                     <span className="font-medium text-gray-900 dark:text-gray-100">{result.output.answer.correct}</span>
                     <span className="text-gray-400 dark:text-gray-500 ml-2">({result.output.answer.type})</span>
                   </div>
+                  {result.output.solution && (
+                    <div className="mt-2 text-sm">
+                      <span className="text-gray-500 dark:text-gray-400">Solution: </span>
+                      <span className="font-medium text-gray-900 dark:text-gray-100">
+                        <QuestionRenderer content={result.output.solution} />
+                      </span>
+                    </div>
+                  )}
                 </div>
               ))}
             </CardBody>

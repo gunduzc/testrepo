@@ -21,6 +21,7 @@ export function StudyView({ curriculumId, previewMode = false }: StudyViewProps)
   const [nextDue, setNextDue] = useState<Date | null>(null);
   const [startTime, setStartTime] = useState<number>(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [canUndo, setCanUndo] = useState(false);
   const [isUndoing, setIsUndoing] = useState(false);
 
@@ -55,6 +56,7 @@ export function StudyView({ curriculumId, previewMode = false }: StudyViewProps)
     if (!question) return;
 
     setIsSubmitting(true);
+    setSubmitError(null);
     try {
       if (previewMode) {
         // In preview mode, don't save progress - just show feedback
@@ -63,7 +65,7 @@ export function StudyView({ curriculumId, previewMode = false }: StudyViewProps)
           correct: isCorrect,
           correctAnswer: question.correctAnswer || "N/A",
           solution: question.solution || question.correctAnswer || "N/A",
-          progress: { completionPercentage: 0 },
+          progress: {},
           canUndo: false,
         });
         setCanUndo(false);
@@ -83,13 +85,19 @@ export function StudyView({ curriculumId, previewMode = false }: StudyViewProps)
         if (data.success) {
           setResult(data.data);
           setCanUndo(data.data.canUndo ?? false);
+          setSubmitError(null);
           setState("feedback");
+        } else if (data.error?.code === "SESSION_NOT_FOUND") {
+          // Session expired or lost — refetch question to get a new session
+          setSubmitError("Session expired. Loading new question...");
+          fetchNextQuestion();
         } else {
-          console.error("Submit failed:", data.error);
+          setSubmitError(data.error?.message || "Failed to submit answer. Please try again.");
         }
       }
     } catch (error) {
       console.error("Failed to submit answer:", error);
+      setSubmitError("Connection error. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -99,6 +107,7 @@ export function StudyView({ curriculumId, previewMode = false }: StudyViewProps)
     setResult(null);
     setQuestion(null);
     setCanUndo(false);
+    setSubmitError(null);
     fetchNextQuestion();
   };
 
@@ -182,18 +191,43 @@ export function StudyView({ curriculumId, previewMode = false }: StudyViewProps)
             </h2>
           </div>
 
-          <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-3 sm:p-4 mb-4 sm:mb-6">
-            <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mb-1">
-              {result.correct ? "Solution:" : "Correct answer:"}
-            </p>
-            <p className="text-base sm:text-lg font-medium text-gray-900 dark:text-gray-100 whitespace-pre-wrap">
-              {result.solution}
-            </p>
+          <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-3 sm:p-4 mb-4 sm:mb-6 space-y-2">
+            {!result.correct && (
+              <div>
+                <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mb-1">Correct answer:</p>
+                <div className="text-base sm:text-lg font-medium text-gray-900 dark:text-gray-100">
+                  <QuestionRenderer content={result.correctAnswer} />
+                </div>
+              </div>
+            )}
+            <div>
+              <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mb-1">Solution:</p>
+              <div className="text-sm sm:text-base text-gray-700 dark:text-gray-300">
+                <QuestionRenderer content={result.solution} />
+              </div>
+            </div>
           </div>
 
-          <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mb-4 sm:mb-6 text-center">
-            <span>Progress: {(result.progress?.completionPercentage ?? 0).toFixed(1)}%</span>
-          </div>
+          {result.progress?.completionPercentage !== undefined && (
+            <div className="mb-4 sm:mb-6">
+              <div className="flex justify-between text-xs sm:text-sm text-gray-500 dark:text-gray-400 mb-1">
+                <span>Progress</span>
+                <span>{result.progress.completionPercentage.toFixed(1)}%</span>
+              </div>
+              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                <div
+                  className={`h-2 rounded-full transition-all ${
+                    result.progress.completionPercentage >= 80
+                      ? "bg-green-500"
+                      : result.progress.completionPercentage >= 50
+                      ? "bg-yellow-500"
+                      : "bg-blue-500"
+                  }`}
+                  style={{ width: `${Math.min(result.progress.completionPercentage, 100)}%` }}
+                />
+              </div>
+            </div>
+          )}
 
           <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
             {canUndo && (
@@ -228,7 +262,14 @@ export function StudyView({ curriculumId, previewMode = false }: StudyViewProps)
             <QuestionRenderer content={question.question} />
           </div>
 
+          {submitError && (
+            <div className="mb-4 p-3 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded-lg text-sm">
+              {submitError}
+            </div>
+          )}
+
           <AnswerInput
+            key={question.sessionId}
             answerType={question.answerType as AnswerType}
             choices={question.choices}
             onSubmit={handleSubmit}

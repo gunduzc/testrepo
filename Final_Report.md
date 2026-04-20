@@ -52,8 +52,6 @@ Nisan 2026
 
 \newpage
 
-\newpage
-
 ## 1. Introduction
 
 This report presents the final state of the Programmable Spaced Repetition Learning Platform, a self-hosted web application that enables organizations to deploy evidence-based spaced repetition learning at institutional scale.

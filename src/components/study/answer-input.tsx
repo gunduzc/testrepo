@@ -19,6 +19,7 @@ export function AnswerInput({ answerType, choices, onSubmit, disabled }: AnswerI
     e.preventDefault();
     if (answer.trim()) {
       onSubmit(answer.trim());
+      setAnswer("");
     }
   };
 
@@ -46,15 +47,15 @@ export function AnswerInput({ answerType, choices, onSubmit, disabled }: AnswerI
   }
 
   // Text-based answer
-  const inputProps: Record<AnswerType, { type: string; placeholder: string; pattern?: string }> = {
-    INTEGER: { type: "text", placeholder: "Enter an integer (e.g., 42)", pattern: "-?\\d+" },
-    DECIMAL: { type: "text", placeholder: "Enter a number (e.g., 3.14)", pattern: "-?\\d*\\.?\\d+" },
+  const inputProps: Record<AnswerType, { type: string; placeholder: string; inputMode?: string }> = {
+    INTEGER: { type: "text", placeholder: "Enter an integer (e.g., 42)", inputMode: "numeric" },
+    DECIMAL: { type: "text", placeholder: "Enter a number (e.g., 3.14)", inputMode: "decimal" },
     TEXT: { type: "text", placeholder: "Enter your answer" },
-    FRACTION: { type: "text", placeholder: "Enter a fraction (e.g., 2/3)", pattern: "-?\\d+/?\\d*" },
+    FRACTION: { type: "text", placeholder: "Enter a fraction (e.g., 2/3)" },
     CHOICE: { type: "text", placeholder: "" },
   };
 
-  const { type, placeholder, pattern } = inputProps[answerType];
+  const { type, placeholder, inputMode } = inputProps[answerType];
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
@@ -63,7 +64,7 @@ export function AnswerInput({ answerType, choices, onSubmit, disabled }: AnswerI
         value={answer}
         onChange={(e) => setAnswer(e.target.value)}
         placeholder={placeholder}
-        pattern={pattern}
+        inputMode={inputMode as any}
         disabled={disabled}
         className="text-lg py-3"
         autoFocus

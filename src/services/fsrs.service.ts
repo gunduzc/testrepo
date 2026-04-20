@@ -258,6 +258,14 @@ export class FSRSService {
 
     if (applyFSRS) {
       // Apply FSRS algorithm for scheduling
+      // When graduating from LEARNING/NEW, use State.New so FSRS initializes
+      // stability and difficulty properly (our step-based learning bypasses FSRS,
+      // so the card arrives here with stability=0 which FSRS can't schedule from)
+      const fsrsState = (currentState === "LEARNING" || currentState === "NEW")
+        && cardState.stability === 0
+        ? State.New
+        : toFSRSState(currentState);
+
       const fsrsCard: FSRSCard = {
         due: cardState.due,
         stability: cardState.stability,
@@ -267,7 +275,7 @@ export class FSRSService {
         learning_steps: 0, // We handle steps ourselves
         reps: cardState.reps,
         lapses: cardState.lapses,
-        state: toFSRSState(currentState),
+        state: fsrsState,
         last_review: cardState.lastReview || undefined,
       };
 
